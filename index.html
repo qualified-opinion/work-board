@@ -1,0 +1,2002 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f6b54">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Work Board">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Work Board</title>
+<link rel="stylesheet" href="css/standalone.css">
+<script src="js/config.js"></script>
+<script src="js/backend.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column under a slim sticky header; a right-hand drawer opens any task, job or client. */
+:root{
+  --bg:#f3f6f5; --surface:#ffffff; --sunk:#e9efed; --ink:#13201c; --muted:#5a6a64; --line:#dbe3e0;
+  --accent:#0f6b54; --accent-ink:#ffffff; --accent-soft:#dcefe8;
+  --ns-bg:#eceff0; --ns-fg:#4f5b60;
+  --ip-bg:#dde9fb; --ip-fg:#1f4f9c;
+  --rv-bg:#fbefd2; --rv-fg:#8a5a00;
+  --wc-bg:#fde3d2; --wc-fg:#a2400c;
+  --bl-bg:#fadcdc; --bl-fg:#a32020;
+  --dn-bg:#d9f0e2; --dn-fg:#17693c;
+  --na-bg:#f1f3f3; --na-fg:#8c9799;
+  --late:#c0362c; --soon:#b36b00;
+  --shadow:0 12px 40px rgba(16,40,32,.16);
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1412; --surface:#151d1a; --sunk:#1b2622; --ink:#e3ebe8; --muted:#93a39d; --line:#26332e;
+  --accent:#4cc29e; --accent-ink:#06261d; --accent-soft:#173a30;
+  --ns-bg:#232c2e; --ns-fg:#aab5b8; --ip-bg:#1a2c47; --ip-fg:#9cc0f5; --rv-bg:#3a2e12; --rv-fg:#f0c868;
+  --wc-bg:#40250f; --wc-fg:#f5a774; --bl-bg:#401a1a; --bl-fg:#f39a9a; --dn-bg:#15352a; --dn-fg:#7fd6a6;
+  --na-bg:#1b2224; --na-fg:#6d7a7d; --late:#ff7b6e; --soon:#f0b54c; --shadow:0 12px 40px rgba(0,0,0,.5);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1412; --surface:#151d1a; --sunk:#1b2622; --ink:#e3ebe8; --muted:#93a39d; --line:#26332e;
+  --accent:#4cc29e; --accent-ink:#06261d; --accent-soft:#173a30;
+  --ns-bg:#232c2e; --ns-fg:#aab5b8; --ip-bg:#1a2c47; --ip-fg:#9cc0f5; --rv-bg:#3a2e12; --rv-fg:#f0c868;
+  --wc-bg:#40250f; --wc-fg:#f5a774; --bl-bg:#401a1a; --bl-fg:#f39a9a; --dn-bg:#15352a; --dn-fg:#7fd6a6;
+  --na-bg:#1b2224; --na-fg:#6d7a7d; --late:#ff7b6e; --soon:#f0b54c; --shadow:0 12px 40px rgba(0,0,0,.5);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;min-height:56px;flex-wrap:wrap;padding-block:8px}
+.brand{font:650 18px/1 var(--f-display);letter-spacing:-.01em;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand .mark{width:26px;height:26px;border-radius:6px;background:var(--accent);display:grid;place-items:center}
+.brand .mark i{display:block;width:12px;height:2px;background:var(--accent-ink);box-shadow:0 -5px 0 var(--accent-ink),0 5px 0 var(--accent-ink)}
+nav.tabs{display:flex;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{border:0;background:none;padding:8px 12px;border-radius:8px;color:var(--muted);font-weight:500;white-space:nowrap}
+nav.tabs button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+nav.tabs button:hover{color:var(--ink)}
+.top-actions{display:flex;gap:8px;align-items:center}
+@media (max-width:720px){.top .wrap{gap:8px}.brand{flex:1}nav.tabs{order:3;flex-basis:100%}}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:8px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+.btn.danger{color:var(--late)}
+.btn.small{padding:4px 9px;font-size:13px}
+.menu{position:relative}
+.menu-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;min-width:220px;z-index:30}
+.menu-pop button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px}
+.menu-pop button:hover{background:var(--sunk)}
+.menu-pop small{display:block;color:var(--muted)}
+
+main{padding-block:24px 80px}
+h1{font:650 clamp(24px,3.4vw,32px)/1.1 var(--f-display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:650 17px/1.2 var(--f-display);margin:0;letter-spacing:-.005em}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.sub{color:var(--muted)}
+
+/* today header */
+.today-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.statut{display:flex;gap:8px;flex-wrap:wrap}
+.statut span{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px}
+.statut b{font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.stat .n{font:650 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat .l{color:var(--muted);font-size:13px}
+.stat.late .n{color:var(--late)} .stat.soon .n{color:var(--soon)}
+.stat[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stats .stat:last-child{grid-column:span 2}}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--sunk);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;padding:5px 11px;border-radius:7px;color:var(--muted);font-weight:500;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.search{flex:1;min-width:180px;max-width:320px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 10px}
+
+/* task list */
+.group{margin-top:22px}
+.group-h{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.sec-tog{border:0;background:none;padding:0;font:inherit;color:inherit;width:100%;text-align:left;cursor:pointer;align-items:center!important}
+.sec-tog .caret,.grp-h .caret{display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--muted);transition:transform .15s;flex:none}
+.sec-tog.shut .caret{transform:rotate(-90deg)}
+.sec-tog:hover h2{text-decoration:underline;text-underline-offset:3px}
+.group-h .count{font-family:var(--f-mono);color:var(--muted);font-size:13px}
+.group-h.late h2{color:var(--late)}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:28px minmax(0,1fr) 130px 92px 242px 64px;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
+.row.closed .t1,.row.closed .t2{opacity:.55}
+.row.picked,.row.picked:hover{background:var(--accent-soft)}
+.chk.sel{border-color:var(--accent);border-radius:5px}
+.selbar .grow{flex:1}
+.backup{border-top:1px solid var(--line);flex:none}
+.backup a{color:var(--accent)}
+.bk-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+#bkMsg.err{color:var(--late)}
+.tselbar .sts{display:flex;flex-wrap:wrap;gap:6px}
+.tselbar .sts button{border:0;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:500}
+.chk{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--muted);background:none;display:grid;place-items:center;padding:0}
+.chk:hover{border-color:var(--accent)}
+.chk.on{background:var(--accent);border-color:var(--accent)}
+.chk.on::after{content:"";width:9px;height:5px;border-left:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px)}
+.t1{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t2{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t2 .per{font-family:var(--f-mono);font-size:12px;color:var(--ink);background:var(--sunk);padding:0 5px;border-radius:4px}
+.flag{color:var(--late);font-size:11px;font-weight:600;margin-left:6px;letter-spacing:.04em}
+.ws-tag{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.due{display:flex;flex-direction:column;line-height:1.25}
+.due .d{font-family:var(--f-mono);font-size:13px}
+.due small{font-size:12px;color:var(--muted)}
+.due.late small{color:var(--late);font-weight:600}
+.due.soon small{color:var(--soon)}
+.owner{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{appearance:none;border:0;border-radius:999px;padding:4px 26px 4px 10px;font-size:12.5px;font-weight:600;max-width:100%;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 13px) 55%,calc(100% - 9px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+.s-ns{background-color:var(--ns-bg);color:var(--ns-fg)} .s-ip{background-color:var(--ip-bg);color:var(--ip-fg)}
+.s-rv{background-color:var(--rv-bg);color:var(--rv-fg)} .s-wc{background-color:var(--wc-bg);color:var(--wc-fg)}
+.s-bl{background-color:var(--bl-bg);color:var(--bl-fg)} .s-dn{background-color:var(--dn-bg);color:var(--dn-fg)}
+.s-na{background-color:var(--na-bg);color:var(--na-fg)}
+.badge{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:600}
+@media (max-width:820px){
+  .row{grid-template-columns:24px minmax(0,1fr) auto;grid-template-areas:"c m due" "c st st";row-gap:6px}
+  .row .chk{grid-area:c;align-self:start;margin-top:2px}
+  .row .main{grid-area:m;min-width:0} .row .due{grid-area:due;text-align:right}
+  .row .stwrap{grid-area:st;display:flex;gap:8px;align-items:center}
+  .row .ws-tag,.row .owner-col{display:none}
+}
+.stwrap{min-width:0;display:flex;gap:6px;align-items:center}
+.tbtn{flex:none;width:30px;height:30px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:inline-grid;place-items:center;padding:0;cursor:pointer}
+.tbtn:hover{color:var(--accent);border-color:var(--accent)}
+.tbtn.pin svg{width:14px;height:14px}
+.tbtn.pin.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.focus{border:1px solid var(--accent);border-radius:14px;background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface));padding:12px 12px 4px;margin-bottom:22px}
+.focus .group-h{margin-bottom:8px;align-items:center}
+.focus .group-h h2{color:var(--accent)}
+.focus-top{display:flex;align-items:center;gap:8px}
+.focus-top .grow{flex:1}
+.focus .list{margin-bottom:8px}
+.focus-empty{font-size:13.5px;color:var(--muted);padding:2px 2px 10px}
+.focus-empty svg{width:12px;height:12px;vertical-align:-1px}
+.tbtn.run{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tbtn svg{width:12px;height:12px}
+.tspent{font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.tspent.run{color:var(--accent);font-weight:600}
+.timerbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--accent);box-shadow:var(--shadow);border-radius:14px;padding:8px 10px 8px 14px;width:min(600px,calc(100% - 32px))}
+.timerbar .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;cursor:pointer}
+.timerbar .clock{font-family:var(--f-mono);font-weight:600;font-size:16px;color:var(--accent)}
+.timerbar .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--late)}
+@media (prefers-reduced-motion:no-preference){.timerbar .dot{animation:blink 1.6s ease-in-out infinite}@keyframes blink{50%{opacity:.25}}}
+@media (max-width:520px){.timerbar{flex-wrap:wrap;row-gap:6px}.timerbar .who{flex-basis:100%;order:-1}.timerbar .clock{flex:1}}
+body.has-timer #app{padding-bottom:96px}
+body.has-timer .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+body.has-timer .selbar{bottom:84px}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) auto 76px 30px;gap:14px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.trow:first-child{border-top:0}
+.trow:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
+.trow .main{min-width:0}
+.trow .meta{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.trow .bill{font-size:12px} .trow .bill.on{color:var(--accent);font-weight:600}
+.trow .dur{font-family:var(--f-mono);font-weight:600;text-align:right}
+@media (max-width:820px){.trow{grid-template-columns:minmax(0,1fr) auto 30px;grid-template-areas:"m d b" "x x b";row-gap:4px}.trow .main{grid-area:m}.trow .dur{grid-area:d}.trow .tbtn{grid-area:b}.trow .meta{grid-area:x;flex-wrap:wrap;row-gap:4px}}
+.ts-start{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:16px}
+.ts-start input:not([type=checkbox]),.ts-start select{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;min-width:0}
+.ts-start #ts-what{flex:2 1 240px}.ts-start #ts-client{flex:1 1 180px}.ts-start select{flex:0 1 180px}
+.ts-start .grow{flex:1}
+.stats.s4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:720px){.stats.s4{grid-template-columns:repeat(2,minmax(0,1fr))}.stats.s4 .stat:last-child{grid-column:auto}}
+.btn svg{width:12px;height:12px;flex:none}.btn{white-space:nowrap}
+.grid td.num{white-space:nowrap}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:18px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.day .dn{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day .dh{font:600 15px/1 var(--f-mono);white-space:nowrap}
+.day .bar{height:4px;border-radius:2px;background:var(--sunk);overflow:hidden}.day .bar i{display:block;height:100%;background:var(--accent)}
+.day.today{border-color:var(--accent)}
+@media (max-width:520px){.days{gap:4px}.day{padding:6px 5px}.day .dh{font-size:11.5px}.day .dn{font-size:11px}}
+.grid tbody tr.nohover{cursor:default}
+.k-client-work{background:var(--ip-bg);color:var(--ip-fg)} .k-admin{background:var(--ns-bg);color:var(--ns-fg)} .k-training{background:var(--dn-bg);color:var(--dn-fg)}
+.k-business-development{background:var(--rv-bg);color:var(--rv-fg)} .k-leave{background:var(--na-bg);color:var(--na-fg)} .k-other{background:var(--ns-bg);color:var(--ns-fg)}
+.today-head .filters .btn.small{min-width:34px;justify-content:center}
+.timebox{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.timebox .grow{flex:1}
+.tspent.big{font-size:20px}
+.tlog{font-size:12.5px;color:var(--muted);font-family:var(--f-mono);line-height:1.6}
+.note-add{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--sunk)}
+.note-add .note-row{display:flex;gap:8px}
+.note-add select,.note-add input,.note-add textarea{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 9px}
+.note-add select{flex:1;min-width:0}.note-add input{flex:1;min-width:0}
+.note-add textarea{min-height:64px;resize:vertical;width:100%}
+.notes .note{padding:9px 12px;border-top:1px solid var(--line)}
+.notes .note:first-child{border-top:0}
+.note-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.note-h .grow{flex:1}
+.note-b{margin-top:4px;white-space:pre-wrap;font-size:13.5px;overflow-wrap:anywhere}
+.note.resolved .note-b{color:var(--muted)}
+.note.editing{display:flex;flex-direction:column;gap:8px;background:var(--sunk)}
+.note.editing .note-row{display:flex;gap:8px}
+.note.editing select,.note.editing input,.note.editing textarea{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 9px;min-width:0;flex:1}
+.note.editing textarea{min-height:70px;resize:vertical;width:100%}
+.note.editing .bk-row{margin:0}
+.note-h .linkish{font-size:12.5px;margin-left:8px}
+.tn-title{margin-top:3px}
+.k-task-note{background:var(--accent-soft);color:var(--accent)}
+.pin-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--soon)}
+.note.pinned{background:color-mix(in srgb,var(--rv-bg) 45%,transparent)}
+.ncards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
+.ncard{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ncard-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ncard-h .grow{flex:1}.ncard-h .count{font-family:var(--f-mono);color:var(--muted);font-size:13px}
+.nc-name{font-size:15px;text-align:left}
+.ncard .mini-list{border:0;border-radius:0}
+.note-quick #nv-client{flex:1 1 200px}.note-quick #nv-text{flex:3 1 280px}.note-quick select{flex:0 1 150px}
+.reminder{border:1px solid var(--soon);background:color-mix(in srgb,var(--rv-bg) 50%,transparent);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.reminder b{font-size:12px;letter-spacing:.03em;color:var(--rv-fg)}
+.note-h .check{font-size:12.5px}
+.k-note{background:var(--ns-bg);color:var(--ns-fg)} .k-call{background:var(--ip-bg);color:var(--ip-fg)} .k-email{background:var(--dn-bg);color:var(--dn-fg)}
+.k-meeting{background:var(--rv-bg);color:var(--rv-fg)} .k-info-request{background:var(--wc-bg);color:var(--wc-fg)}
+.rs-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.rs-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
+.rs-list .mi{display:flex;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+.rs-list .mi:first-child{border-top:0}
+.rs-list .mi .grow{flex:1;min-width:0;overflow-wrap:anywhere}
+.btn.warn{background:var(--late);color:#fff;border-color:var(--late)}
+.err-t{color:var(--late)}
+.empty{padding:28px 18px;text-align:center;color:var(--muted)}
+.more{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:9px;color:var(--muted);font-size:13px}
+
+/* board */
+.board-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table.board{border-collapse:collapse;width:100%;min-width:760px}
+.board th,.board td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+.board thead th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
+.board thead th.cur{color:var(--accent)}
+.board td.cur{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+.board .job{cursor:pointer;min-width:220px}
+.board .job:hover .t1{color:var(--accent)}
+.cells{display:flex;gap:4px;flex-wrap:wrap}
+.cell{border:0;border-radius:6px;min-width:34px;height:26px;padding:0 6px;font:500 12px/26px var(--f-mono)}
+.cell.overdue{box-shadow:inset 0 0 0 2px var(--late)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted);align-items:center}
+.legend .badge{font-weight:500}
+
+/* clients */
+table.grid{border-collapse:collapse;width:100%}
+.grid th,.grid td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.grid th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk)}
+.grid tbody tr{cursor:pointer}
+.grid tbody tr:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
+.grid tr:last-child td{border-bottom:0}
+.team{font-family:var(--f-mono);font-size:12.5px;white-space:nowrap}
+.team span{color:var(--muted)}
+.num{font-family:var(--f-mono);text-align:right}
+.late-n{color:var(--late);font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.grp-sec{margin-top:18px}
+.grp-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+.grp-h button.tog{border:0;background:none;padding:0;display:flex;align-items:center;gap:8px;font:inherit;color:var(--ink)}
+.grp-h button.tog h2{margin:0;font-size:17px}
+.grp-h .caret{display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--muted);transition:transform .15s}
+.grp-h.shut .caret{transform:rotate(-90deg)}
+.grp-h .meta{color:var(--muted);font-size:13px}
+.grp-h .meta .late-n{color:var(--late)}
+.grp-h .sp{flex:1}
+.selbar{position:sticky;bottom:12px;z-index:15;margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--accent);box-shadow:var(--shadow);border-radius:12px;padding:10px 12px}
+.selbar b{margin-right:4px}
+.selbar input{flex:1;min-width:160px;max-width:260px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 9px}
+.grid td.pick,.grid th.pick{width:34px;padding-right:0}
+.grid td.pick input{width:17px;height:17px;accent-color:var(--accent)}
+.grp-filter{max-width:230px}
+.grp-on{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:999px;padding:3px 4px 3px 10px;font-size:13px}
+.grp-on button{border:0;background:none;color:var(--muted);padding:0 6px;font-size:15px;line-height:1}
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(8,16,13,.38);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:41;box-shadow:var(--shadow);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.d-head{padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.d-head .grow{flex:1;min-width:0}
+.d-head h2{font-size:20px;text-wrap:balance}
+.d-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+.d-foot{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>label,.field>.lab{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%}
+.field textarea{min-height:90px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media (max-width:480px){.two,.three{grid-template-columns:1fr}}
+.status-seg{display:flex;flex-wrap:wrap;gap:6px}
+.status-seg button{border:1px solid transparent;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;opacity:.6}
+.status-seg button[aria-pressed="true"]{opacity:1;border-color:currentColor}
+.steps{display:flex;flex-direction:column;gap:2px}
+.step{display:flex;gap:10px;align-items:center;padding:6px 0}
+.step span{flex:1}
+.step.done span{text-decoration:line-through;color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted)}
+.linkish{border:0;background:none;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.mini-list{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mini-list .mi{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line);cursor:pointer;align-items:center}
+.mini-list .mi:first-child{border-top:0}
+.mini-list .mi:hover{background:var(--sunk)}
+.mini-list .mi .grow{min-width:0;flex:1}
+.check{display:flex;gap:8px;align-items:center}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13.5px}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;display:flex;gap:14px;align-items:center;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.toast button{background:none;border:0;color:var(--accent-soft);font-weight:600;text-decoration:underline}
+.banner{background:var(--rv-bg);color:var(--rv-fg);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+
+.dl{width:100%;border-collapse:collapse;min-width:640px}
+.dl th,.dl td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13.5px}
+.dl th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk);font-weight:600}
+.dl tr:last-child td{border-bottom:0}
+.section{margin-top:26px;display:flex;flex-direction:column;gap:10px}
+.drawer{container-type:inline-size}
+.d-resize{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2;touch-action:none}
+.d-resize::after{content:"";position:absolute;left:3px;top:50%;width:4px;height:44px;margin-top:-22px;border-radius:3px;background:var(--line,#ccd);opacity:.9;transition:background .15s}
+.d-resize:hover::after,.d-resize:focus-visible::after,.d-resize.on::after{background:var(--accent,#0f6b4f)}
+body.resizing{user-select:none;cursor:ew-resize}
+@media (max-width:720px){.d-resize{display:none}.drawer{width:100%!important}}
+@container (max-width:460px){.two,.three{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.4}}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i></span>Work Board</div>
+    <nav class="tabs" id="tabs" aria-label="Views">
+      <button data-view="today">Today</button>
+      <button data-view="board">Tracker</button>
+      <button data-view="clients">Clients</button>
+      <button data-view="all">All tasks</button>
+      <button data-view="notes">Notes</button>
+      <button data-view="time">Timesheet</button>
+      <button data-view="deadlines">Deadlines</button>
+    </nav>
+    <div class="top-actions">
+      <button class="btn ghost small" id="settingsBtn" title="Settings">Settings</button>
+      <div class="menu">
+        <button class="btn primary" id="newBtn" aria-haspopup="true">+ New</button>
+        <div class="menu-pop" id="newMenu" hidden>
+          <button data-new="task">One-off task<small>A single piece of work with an optional due date</small></button>
+          <button data-new="job">Recurring job<small>BAS, bookkeeping, payroll tax… repeats on its own</small></button>
+          <button data-new="time">Time entry<small>Log time on anything, with or without a task</small></button>
+          <button data-new="client">Client</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<main class="wrap" id="app"><div class="empty">Loading your work board…</div></main>
+<div id="drawerRoot"></div>
+<div id="timerRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(() => {
+'use strict';
+// ---------- constants ----------
+const WS = {bas:'BAS & IAS', bookkeeping:'Bookkeeping', mgmt:'Management reports', supplier:'Supplier runs', payroll:'Payroll & STP', ptax:'Payroll tax', admin:'Practice admin', other:'Other'};
+const STATUSES = ['Not started','In progress','For review','Waiting on client','Blocked','Done','Not applicable'];
+const OPEN = STATUSES.slice(0,5);
+const SC = {'Not started':'ns','In progress':'ip','For review':'rv','Waiting on client':'wc','Blocked':'bl','Done':'dn','Not applicable':'na'};
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FREQ = {monthly:'Monthly', quarterly:'Quarterly', weekly:'Weekly', fortnightly:'Fortnightly', yearly:'Yearly'};
+const WD = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// ---------- dates ----------
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const D = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d, 12); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const lastDay = (y,m) => new Date(y, m, 0).getDate();
+const addMonths = (y,m,n) => { const t = y*12+(m-1)+n; return [Math.floor(t/12), t%12+1]; };
+const roll = (d,on) => { if (!on) return d; const w = d.getDay(); return w===6 ? addDays(d,2) : w===0 ? addDays(d,1) : d; };
+const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12); };
+const dayDiff = (a,b) => Math.round((a-b)/864e5);
+const fmtD = s => { if (!s) return ''; const d = D(s); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+const fmtLong = d => d.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+const nowIso = () => new Date().toISOString();
+
+function dueIn(y, m, r){
+  const [yy,mm] = addMonths(y, m, r.offset ?? 1);
+  const day = r.day === 'last' ? lastDay(yy,mm) : Math.min(+r.day || 1, lastDay(yy,mm));
+  return new Date(yy, mm-1, day, 12);
+}
+function periodsFor(job, start, end){
+  const out = [], f = job.freq, r = job.due || {}, rw = !!job.rollWeekend;
+  if (f === 'monthly'){
+    let [y,m] = addMonths(start.getFullYear(), start.getMonth()+1, -3);
+    for (let i=0;i<60;i++){ const due = roll(dueIn(y,m,r), rw); if (due > end) break;
+      if (due >= start) out.push({key:`M${y}-${pad(m)}`, label:`${MON[m-1]} ${String(y).slice(2)}`, due}); [y,m] = addMonths(y,m,1); }
+  } else if (f === 'quarterly'){
+    let [y,m] = addMonths(start.getFullYear(), start.getMonth()+1, -6); m = Math.ceil(m/3)*3;
+    for (let i=0;i<30;i++){
+      let due;
+      if (r.rule === 'bas'){ const [yy,mm] = addMonths(y, m, m===12 ? 2 : 1); due = new Date(yy, mm-1, 28, 12); }
+      else due = dueIn(y, m, r);
+      due = roll(due, rw); if (due > end) break;
+      if (due >= start) out.push({key:`Q${y}-${pad(m)}`, label:`${MON[m-3]}–${MON[m-1]} ${String(y).slice(2)}`, due});
+      [y,m] = addMonths(y,m,3);
+    }
+  } else if (f === 'weekly'){
+    let mon = addDays(start, -7); mon = addDays(mon, -((mon.getDay()+6)%7));
+    for (let i=0;i<120;i++){ const due = roll(addDays(mon, (+r.weekday||5)-1), rw); if (due > end) break;
+      if (due >= start) out.push({key:`W${iso(mon)}`, label:`w/c ${mon.getDate()} ${MON[mon.getMonth()]}`, due}); mon = addDays(mon,7); }
+  } else if (f === 'fortnightly'){
+    const a = D(r.anchor || iso(start)); let k = Math.floor(dayDiff(start, a)/14) - 1;
+    for (let i=0;i<80;i++,k++){ const due = addDays(a, 14*k); if (due > end) break;
+      if (due >= start) out.push({key:`F${iso(due)}`, label:`${due.getDate()} ${MON[due.getMonth()]}`, due}); }
+  } else if (f === 'yearly'){
+    for (let y = start.getFullYear()-1; y <= end.getFullYear()+1; y++){
+      const mm = +r.month || 7, due = roll(new Date(y, mm-1, Math.min(+r.day||1, lastDay(y,mm)), 12), rw);
+      if (due >= start && due <= end) out.push({key:`Y${y}`, label:String(y), due});
+    }
+  }
+  return out;
+}
+function describeRule(j){
+  const r = j.due || {};
+  const dayTxt = d => d === 'last' ? 'last day' : `${d}${['th','st','nd','rd'][(d%100>10&&d%100<14)?0:Math.min(d%10,4)%4] || 'th'}`;
+  if (j.freq === 'monthly') return `Monthly · due ${dayTxt(r.day)} ${r.offset===0 ? 'of the month' : 'of the following month'}`;
+  if (j.freq === 'quarterly') return r.rule === 'bas' ? 'Quarterly · ATO BAS dates (28th; Dec quarter 28 Feb)' : `Quarterly · due ${dayTxt(r.day)} ${r.offset===0 ? 'of the quarter-end month' : 'of the month after quarter end'}`;
+  if (j.freq === 'weekly') return `Weekly · due ${WD[+r.weekday||5]}`;
+  if (j.freq === 'fortnightly') return `Fortnightly · from ${fmtD(r.anchor)}`;
+  if (j.freq === 'yearly') return `Yearly · due ${r.day} ${MON[(+r.month||1)-1]}`;
+  return j.freq;
+}
+
+// ---------- helpers ----------
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEEP = new Set(['pty','ltd','and','the','for','of','llc']);
+function nice(s){
+  s = String(s || '').trim();
+  if (!s || s !== s.toUpperCase() || !/[A-Z]/.test(s)) return s;
+  return s.split(/(\s+|[(),/-])/).map(w => {
+    const lw = w.toLowerCase();
+    if (!/[a-z]/i.test(w)) return w;
+    if (KEEP.has(lw)) return lw === 'llc' ? 'LLC' : lw[0].toUpperCase()+lw.slice(1);
+    if (w.length <= 3 && !/[aeiou]/i.test(w.slice(1))) return w;
+    return lw[0].toUpperCase()+lw.slice(1);
+  }).join('').replace(/\b(And|The|For|Of)\b(?!$)/g, (m,_,o) => o === 0 ? m : m.toLowerCase());
+}
+const rid = p => p + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60).replace(/-$/,'') || 'item';
+const isOpen = t => OPEN.includes(t.status);
+const debounce = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+
+// ---------- state ----------
+let db = null;
+const clients = new Map(), jobs = new Map(), tasks = new Map(), notes = new Map();
+const taskSrc = {due:new Map(), open:new Map(), done:new Map()};
+let settings = {me:['Jan','JD'], horizonDays:45, dueSoonDays:7};
+const ready = {clients:false, jobs:false, due:false, open:false, done:false, settings:false, notes:false, time:false, timer:false};
+let loaded = false, dbMissing = false, readOnly = false, canWrite = null;
+const ui = load('ui', {view:'today', mine:true, ws:'', q:'', stat:'', boardWs:'bas', clientQ:'', showInactive:false, allStatus:'open', allWs:'', allQ:'', grp:'', clientView:'groups', shut:{}, tsRange:'week', tsAnchor:'', tsQ:'', tsWhat:'', tsClient:'', tsCat:'Client work', tsBill:true, nQ:'', nFilter:'all', nvClient:'', nvKind:'Note', nvText:'', nvPin:false});
+const picked = new Set();
+let selMode = false; const tPicked = new Set(); let shownIds = [];
+let drawer = null; // {type, id, draft}
+function load(k, d){ try { return Object.assign({}, d, JSON.parse(localStorage.getItem('wb-'+k) || '{}')); } catch { return {...d}; } }
+function persistUi(){ try { localStorage.setItem('wb-ui', JSON.stringify(ui)); } catch {} }
+
+const meSet = () => new Set((settings.me || []).map(s => s.trim().toLowerCase()).filter(Boolean));
+// Client groups: a client is in a group when its group is set and differs from its own name.
+const gkey = s => nice(String(s||'').trim()).replace(/\s+/g,' ');
+function groupOfClient(c){ if (!c) return ''; return gkey(c.group); }
+// group label worth showing under a client name (a one-client group named after the client adds nothing)
+function groupLabel(c){ const g = groupOfClient(c); return g && g.toLowerCase() !== gkey(c.name).toLowerCase() ? g : ''; }
+const groupOf = clientId => groupOfClient(clients.get(clientId));
+function groupList(){ const m = new Map(); for (const [id,c] of clients){ const g = groupOfClient(c); if (!g) continue; const k = g.toLowerCase(); if (!m.has(k)) m.set(k, {name:g, ids:[]}); m.get(k).ids.push(id); }
+  return [...m.values()].sort((a,b) => b.ids.length - a.ids.length || a.name.localeCompare(b.name)); }
+const inGrp = clientId => !ui.grp || groupOf(clientId).toLowerCase() === ui.grp.toLowerCase();
+function grpFilter(){
+  const gl = groupList(); if (!gl.length) return '';
+  if (ui.grp && !gl.some(g => g.name.toLowerCase() === ui.grp.toLowerCase())) ui.grp = '';
+  return `<select class="search grp-filter" id="grpSel" data-act="grp" aria-label="Client group"><option value="">All clients</option>${gl.map(g => `<option value="${esc(g.name)}"${ui.grp.toLowerCase()===g.name.toLowerCase()?' selected':''}>${esc(g.name)} (${g.ids.length})</option>`).join('')}</select>`;
+}
+const grpDatalist = () => `<datalist id="grpList">${groupList().map(g => `<option value="${esc(g.name)}">`).join('')}</datalist>`;
+const isMine = t => { const m = meSet(); return !t.owner || m.has(String(t.owner).trim().toLowerCase()); };
+
+// ---------- writes ----------
+const chains = new Map();
+function queue(path, fn){
+  const prev = chains.get(path) || Promise.resolve();
+  const next = prev.catch(()=>{}).then(() => fn().catch(e => {
+    if (e && e.code === 'unavailable') return new Promise(r => setTimeout(r, 400 + Math.random()*600)).then(fn);
+    throw e;
+  }));
+  chains.set(path, next);
+  return next.catch(e => { handleWriteError(e); throw e; });
+}
+function handleWriteError(e){
+  if (e && e.code === 'invalid_argument' && canWrite !== true) { readOnly = true; toast('You can view this board but not change it.'); render(); }
+  else if (e && e.code === 'invalid_argument') toast('That item was changed or removed somewhere else. The board has the latest version.');
+  else if (e && e.code === 'quota_exceeded') toast('The board is full. Delete some old tasks and try again.');
+  else toast('That change did not save. Check your connection and try again.');
+  console.error(e);
+}
+const upd = (col, id, patch) => queue(`${col}/${id}`, () => db.doc(`${col}/${id}`).update({...patch, updated: nowIso()}));
+const put = (col, id, data) => queue(`${col}/${id}`, () => db.doc(`${col}/${id}`).set({...data, updated: nowIso()}));
+const del = (col, id) => queue(`${col}/${id}`, () => db.doc(`${col}/${id}`).delete());
+
+function setStatus(id, status, opts = {}){
+  const t = tasks.get(id); if (!t || t.status === status) return;
+  const prev = {status: t.status, doneAt: t.doneAt || '', steps: t.steps || []};
+  const patch = {status, doneAt: status === 'Done' ? nowIso() : (status === 'Not applicable' ? (t.doneAt || nowIso()) : '')};
+  if (status === 'Done' && (t.steps||[]).length) patch.steps = t.steps.map(s => ({...s, d:true}));
+  // Closing a task stops its timer and logs the time; Undo takes the entry back off and starts the timer again.
+  let logged = null;
+  if (!OPEN.includes(status) && t.timerStart){ logged = stopTask(id, t); Object.assign(patch, logged.patch); Object.assign(prev, {timerStart: t.timerStart, timeSec: +t.timeSec || 0}); addEntry(logged.date, logged.entry).catch(()=>{}); }
+  if (logged) tasks.set(id, {...t, ...patch});
+  upd('tasks', id, patch).then(() => { if (status === 'Done' || status === 'Not applicable') ensureInstances(); }).catch(()=>{});
+  const undo = () => { upd('tasks', id, prev).catch(()=>{}); if (logged) removeEntry(logged.date, logged.entry.id).catch(()=>{}); };
+  if (!opts.quiet) toast(`${t.title} · ${nice(t.client) || 'no client'} → ${status}`, undo);
+  return undo;
+}
+
+// ---------- time tracking ----------
+// The timesheet keeps one document per day (time/YYYY-MM-DD) holding that day's entries.
+// A task timer is a task with timerStart set; a timer on other work lives in settings/timer.
+// Only one timer runs at a time.
+const CATS = ['Client work', 'Admin', 'Meeting', 'Training', 'Business development', 'Leave', 'Other'];
+const IC = {play:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg>',
+  pause:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3.2v11H3.5zM9.3 2.5h3.2v11H9.3z" fill="currentColor"/></svg>',
+  stop:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h9v9h-9z" fill="currentColor"/></svg>',
+  pin:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 1.8h5l-.7 4.3 2.4 2.4v1.2H8.6V14L8 15l-.6-1V9.7H3.8V8.5l2.4-2.4z" fill="currentColor"/></svg>'};
+const runningId = () => { for (const [id,t] of tasks) if (t.timerStart) return id; return null; };
+const elapsed = t => (+t.timeSec || 0) + (t.timerStart ? Math.max(0, (Date.now() - Date.parse(t.timerStart)) / 1000) : 0);
+const freeSec = () => freeTimer ? Math.max(0, (Date.now() - Date.parse(freeTimer.start)) / 1000) : 0;
+const fmtDur = s => { s = Math.round(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60); return h ? `${h}h ${pad(m)}m` : s && s < 60 ? `${s}s` : `${m}m`; };
+const fmtClock = s => { s = Math.floor(s); return `${Math.floor(s/3600)}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; };
+const fmtHrs = s => `${+(s/3600).toFixed(2)} h`;
+const hm = d => d.toLocaleTimeString('en-AU', {hour:'numeric', minute:'2-digit'});
+const hm24 = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const durInput = s => `${Math.floor(s/3600)}:${pad(Math.round(s%3600/60) === 60 ? 59 : Math.round(s%3600/60))}`;
+const meName = () => (settings.me || [])[0] || '';
+const clientByName = name => { name = String(name||'').trim(); if (!name) return {clientId:'', client:''};
+  for (const [id,c] of clients) if (c.name.trim().toLowerCase() === name.toLowerCase() || nice(c.name).toLowerCase() === name.toLowerCase()) return {clientId:id, client:c.name};
+  return {clientId:'', client:name}; };
+
+// Day documents: read the latest copy inside the write queue so two quick saves can't overwrite each other.
+function mutateDay(date, fn){
+  const ref = db.doc(`time/${date}`);
+  return queue(`time/${date}`, async () => {
+    const snap = await ref.get(); const cur = snap.exists ? snap.data() : {};
+    const entries = fn([...(cur.entries || [])]);
+    if (date < timeCutoff) timeOld.set(date, {date, entries});
+    if (!entries.length) return snap.exists ? ref.delete() : undefined;
+    return ref.set({date, entries, updated: nowIso()});
+  });
+}
+const addEntry = (date, entry) => mutateDay(date, es => [...es, entry]);
+const removeEntry = (date, id) => mutateDay(date, es => es.filter(x => x.id !== id));
+function adjustTask(taskId, delta){
+  const t = taskId && tasks.get(taskId); if (!t || !delta) return;
+  upd('tasks', taskId, {timeSec: Math.max(0, (+t.timeSec || 0) + delta)}).catch(()=>{});
+}
+// Closing a task's running session: the task keeps a running total, the timesheet gets the entry.
+function stopTask(id, t){
+  if (!t || !t.timerStart) return null;
+  const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(t.timerStart)) / 1000));
+  const entry = {id: rid('e'), start: t.timerStart, end: e, sec, taskId: id, clientId: t.clientId || '', client: t.client || '',
+    title: t.title + (t.period ? ` · ${t.period}` : ''), category: t.ws === 'admin' ? 'Admin' : 'Client work', billable: t.ws !== 'admin' && !!t.client,
+    notes: '', source: 'timer', by: meName()};
+  return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec}, entry, date: iso(new Date(t.timerStart))};
+}
+async function startTimer(id){
+  const t = tasks.get(id); if (!t || t.timerStart || readOnly) return;
+  const other = runningId(), hadFree = !!freeTimer;
+  if (other && other !== id) await pauseTimer(other, {quiet:true});
+  if (hadFree) await stopFree({quiet:true});
+  const patch = {timerStart: nowIso()}; if (t.status === 'Not started') patch.status = 'In progress';
+  tasks.set(id, {...tasks.get(id), ...patch}); render(); if (drawer) renderDrawer();
+  upd('tasks', id, patch).catch(()=>{});
+  toast(other || hadFree ? 'Switched the timer to this task' : 'Timer started');
+}
+async function pauseTimer(id, opts = {}){
+  const t = tasks.get(id), r = stopTask(id, t); if (!r) return;
+  tasks.set(id, {...t, ...r.patch}); render(); if (drawer) renderDrawer();
+  upd('tasks', id, r.patch).catch(()=>{});
+  addEntry(r.date, r.entry).catch(()=>{});
+  if (!opts.quiet) toast(`Paused · ${fmtDur(r.entry.sec)} added to your timesheet`);
+}
+function finishTimer(id){
+  const t = tasks.get(id); if (!t) return;
+  const total = elapsed(t), undo = setStatus(id, 'Done', {quiet:true});
+  toast(`Finished in ${fmtDur(total)} · ${t.title} marked Done`, undo);
+}
+async function startFree(d){
+  if (readOnly) return;
+  const run = runningId(); if (run) await pauseTimer(run, {quiet:true});
+  if (freeTimer) await stopFree({quiet:true});
+  freeTimer = {title: d.title || '', clientId: d.clientId || '', client: d.client || '', category: d.category || 'Other', billable: !!d.billable, notes: d.notes || '', start: nowIso()};
+  render(); put('settings', 'timer', freeTimer).catch(()=>{});
+  toast(run ? 'Switched the timer' : 'Timer started');
+}
+async function stopFree(opts = {}){
+  const f = freeTimer; if (!f || !f.start) return;
+  const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(f.start)) / 1000));
+  freeTimer = null; render();
+  put('settings', 'timer', {start: ''}).catch(()=>{});
+  const entry = {id: rid('e'), start: f.start, end: e, sec, taskId: '', clientId: f.clientId || '', client: f.client || '', title: f.title || '',
+    category: f.category || 'Other', billable: !!f.billable, notes: f.notes || '', source: 'timer', by: meName()};
+  const date = iso(new Date(f.start));
+  await addEntry(date, entry).catch(()=>{});
+  if (!opts.quiet) toast(`Logged ${fmtDur(sec)} to your timesheet`, () => removeEntry(date, entry.id).catch(()=>{}));
+}
+function timerBtn(id, t){
+  if (readOnly || selMode || !isOpen(t)) return '';
+  const run = !!t.timerStart, l = run ? 'Pause timer' : 'Start timer';
+  return `<button class="tbtn${run?' run':''}" data-act="${run?'tpause':'tstart'}" data-id="${esc(id)}" aria-label="${l}" title="${l}">${run?IC.pause:IC.play}</button>`;
+}
+// Today's focus: task.focus holds when it was pinned; empty means not pinned. Pins stay until unpinned or cleared.
+function pinBtn(id, t){
+  if (readOnly || selMode || (!isOpen(t) && !t.focus)) return '';
+  const on = !!t.focus, l = on ? "Unpin from today's focus" : "Pin to today's focus";
+  return `<button class="tbtn pin${on?' on':''}" data-act="tpin" data-id="${esc(id)}" aria-pressed="${on}" aria-label="${l}" title="${l}">${IC.pin}</button>`;
+}
+function setFocus(ids, on, quiet){
+  const prev = ids.map(id => [id, (tasks.get(id) || {}).focus || '']), at = nowIso();
+  for (const id of ids){ const t = tasks.get(id); if (!t) continue; tasks.set(id, {...t, focus: on ? at : ''}); upd('tasks', id, {focus: on ? at : ''}).catch(()=>{}); }
+  render(true);
+  const undo = () => { for (const [id, f] of prev){ const t = tasks.get(id); if (t) tasks.set(id, {...t, focus: f}); upd('tasks', id, {focus: f}).catch(()=>{}); } render(true); };
+  if (!quiet){ const one = ids.length === 1 && tasks.get(ids[0]); toast(one ? `${on ? 'Pinned' : 'Unpinned'}: ${one.title} · ${nice(one.client) || 'no client'}` : `${ids.length} task${ids.length===1?'':'s'} ${on ? "pinned to today's focus" : 'unpinned'}`, undo); }
+  return undo;
+}
+const timerRoot = document.getElementById('timerRoot');
+function renderTimer(){
+  const id = loaded && !dbMissing ? runningId() : null, free = loaded && !dbMissing && !id ? freeTimer : null;
+  document.body.classList.toggle('has-timer', !!(id || free));
+  if (id){
+    const t = tasks.get(id);
+    timerRoot.innerHTML = `<div class="timerbar" role="region" aria-label="Running timer"><span class="dot" aria-hidden="true"></span>
+      <span class="who" data-act="open-task" data-id="${esc(id)}" title="Open task"><b>${esc(nice(t.client) || 'General')}</b> · ${esc(t.title)}${t.period?` · ${esc(t.period)}`:''}</span>
+      <span class="clock" data-tick="${esc(id)}" data-fmt="clock">${fmtClock(elapsed(t))}</span>
+      ${readOnly ? '' : `<button class="btn small" data-act="tpause" data-id="${esc(id)}">Pause</button><button class="btn primary small" data-act="tfinish" data-id="${esc(id)}">Finish</button>`}</div>`;
+  } else if (free){
+    timerRoot.innerHTML = `<div class="timerbar" role="region" aria-label="Running timer"><span class="dot" aria-hidden="true"></span>
+      <span class="who" data-act="go-time" title="Open timesheet"><b>${esc(nice(free.client) || free.category || 'Timer')}</b> · ${esc(free.title || 'No description')}</span>
+      <span class="clock" data-tick="free" data-fmt="clock">${fmtClock(freeSec())}</span>
+      ${readOnly ? '' : `<button class="btn primary small" data-act="fstop">Stop</button>`}</div>`;
+  } else timerRoot.innerHTML = '';
+}
+setInterval(() => { document.querySelectorAll('[data-tick]').forEach(el => {
+  const k = el.dataset.tick, sec = k === 'free' ? freeSec() : (tasks.get(k) ? elapsed(tasks.get(k)) : null);
+  if (sec != null) el.textContent = el.dataset.fmt === 'clock' ? fmtClock(sec) : fmtDur(sec); }); }, 1000);
+
+// ---------- timesheet ----------
+const timeCutoff = iso(addDays(today(), -400));
+const timeDays = new Map(), timeOld = new Map(), oldAsked = new Set();
+let freeTimer = null;
+function loadOld(sI, eI){
+  const k = sI + eI; if (oldAsked.has(k) || !db) return; oldAsked.add(k);
+  db.collection('time').where('date', '>=', sI).where('date', '<=', eI).get()
+    .then(q => { q.docs.forEach(d => { if (d.id < timeCutoff) timeOld.set(d.id, d.data()); }); scheduleRender(); }).catch(e => console.error(e));
+}
+function entriesIn(sI, eI){
+  const out = [];
+  for (const src of [timeDays, timeOld]) for (const [d, doc] of src) if (d >= sI && d <= eI && (src === timeDays || d < timeCutoff)) for (const x of doc.entries || []) out.push({...x, date: d});
+  return out;
+}
+const sumSec = list => list.reduce((n, x) => n + (+x.sec || 0), 0);
+const byStart = (a,b) => (a.date).localeCompare(b.date) || (a.start || a.created || '').localeCompare(b.start || b.created || '');
+function tsRange(){
+  const a = ui.tsAnchor ? D(ui.tsAnchor) : today();
+  if (ui.tsRange === 'month'){ const s = new Date(a.getFullYear(), a.getMonth(), 1, 12), e = new Date(a.getFullYear(), a.getMonth()+1, 0, 12);
+    return {s, e, label: s.toLocaleDateString('en-AU', {month:'long', year:'numeric'})}; }
+  const s = addDays(a, -((a.getDay() + 6) % 7)), e = addDays(s, 6);
+  return {s, e, label: `${s.getDate()} ${MON[s.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]} ${e.getFullYear()}`};
+}
+function tsMatch(x){ const q = (ui.tsQ || '').toLowerCase(); if (!q) return true; return [x.client, nice(x.client), x.title, x.category, x.notes].some(v => String(v||'').toLowerCase().includes(q)); }
+function viewTime(){
+  const {s, e, label} = tsRange(), sI = iso(s), eI = iso(e), t0 = iso(today());
+  if (sI < timeCutoff) loadOld(sI, eI < timeCutoff ? eI : timeCutoff);
+  const list = entriesIn(sI, eI).filter(tsMatch);
+  const tot = sumSec(list), bill = sumSec(list.filter(x => x.billable)), todaySec = sumSec(entriesIn(t0, t0));
+  const cur = t0 >= sI && t0 <= eI;
+  const days = []; for (let d = new Date(e); d >= s; d = addDays(d, -1)) days.push(iso(d));
+  const per = new Map(days.map(d => [d, []])); for (const x of list) if (per.has(x.date)) per.get(x.date).push(x);
+  const strip = ui.tsRange === 'month' ? '' : `<div class="days">${[...days].reverse().map(d => { const sec = sumSec(per.get(d)); const dd = D(d);
+    return `<div class="day${d===t0?' today':''}"><span class="dn">${dd.toLocaleDateString('en-AU', {weekday:'short'})} ${dd.getDate()}</span><span class="dh">${sec ? `${+(sec/3600).toFixed(2)}h` : '–'}</span><span class="bar"><i style="width:${Math.min(100, sec/360/0.8)}%"></i></span></div>`; }).join('')}</div>`;
+  const row = x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
+    return `<div class="trow" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}">
+      <div class="main"><div class="t1">${esc(nice(x.client) || 'Internal')}</div><div class="t2">${esc(x.title || 'No description')}${x.notes ? ` · ${esc(x.notes.slice(0,80))}` : ''}</div></div>
+      <div class="meta"><span class="mono">${st ? `${hm(st)}${en ? `–${hm(en)}` : ''}` : 'Added by hand'}</span><span class="badge k-${slug(x.category||'other')}">${esc(x.category || 'Other')}</span><span class="bill${x.billable?' on':''}">${x.billable ? 'Billable' : 'Non-billable'}</span></div>
+      <span class="dur">${fmtDur(x.sec)}</span>
+      ${readOnly ? '<span></span>' : `<button class="tbtn" data-act="ts-again" data-id="${esc(x.date + '|' + x.id)}" aria-label="Start a timer on this again" title="Start a timer on this again">${IC.play}</button>`}</div>`; };
+  const dayBlocks = days.filter(d => per.get(d).length).map(d => { const l = per.get(d).sort(byStart).reverse();
+    return `<section class="group"><div class="group-h"><h2>${esc(D(d).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'short'}))}</h2><span class="count">${fmtDur(sumSec(l))}</span></div><div class="list">${l.map(row).join('')}</div></section>`; }).join('');
+  const byClient = new Map(); for (const x of list){ const k = nice(x.client) || `Internal · ${x.category || 'Other'}`; const o = byClient.get(k) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; byClient.set(k, o); }
+  const summary = byClient.size ? `<section class="section"><div class="group-h"><h2>By client</h2></div><div class="tbl-wrap"><table class="grid"><thead><tr><th>Client</th><th class="num">Billable</th><th class="num">Non-billable</th><th class="num">Total</th></tr></thead><tbody>
+    ${[...byClient.entries()].sort((a,b) => (b[1].b+b[1].n) - (a[1].b+a[1].n)).map(([k,o]) => `<tr class="nohover"><td>${esc(k)}</td><td class="num">${o.b ? fmtHrs(o.b) : ''}</td><td class="num">${o.n ? fmtHrs(o.n) : ''}</td><td class="num"><b>${fmtHrs(o.b+o.n)}</b></td></tr>`).join('')}</tbody></table></div></section>` : '';
+  const running = runningId() || freeTimer;
+  const starter = readOnly ? '' : `<div class="ts-start">
+    <input id="ts-what" data-ui="tsWhat" value="${esc(ui.tsWhat||'')}" placeholder="What are you working on?" aria-label="What are you working on">
+    <input id="ts-client" data-ui="tsClient" list="clientListTs" value="${esc(ui.tsClient||'')}" placeholder="Client (optional)" aria-label="Client">${clientOptions('clientListTs')}
+    <select id="ts-cat" data-ui="tsCat" aria-label="Category">${CATS.map(c => `<option${(ui.tsCat||'Client work')===c?' selected':''}>${c}</option>`).join('')}</select>
+    <label class="check"><input type="checkbox" id="ts-bill" data-ui="tsBill" ${ui.tsBill!==false?'checked':''}> Billable</label>
+    <span class="grow"></span>
+    <button class="btn primary" data-act="ts-start">${IC.play} ${running ? 'Switch timer to this' : 'Start timer'}</button>
+    <button class="btn" data-new="time">+ Add time</button></div>`;
+  return `<div class="today-head"><div><div class="eyebrow">${ui.tsRange === 'month' ? 'Month' : 'Week'}${cur ? (ui.tsRange === 'month' ? ' · this month' : ' · this week') : ''}</div><h1>Timesheet</h1><div class="sub">${esc(label)}</div></div>
+    <div class="filters" style="margin:0"><div class="seg" role="group" aria-label="Range"><button data-act="ts-range" data-v="week" aria-pressed="${ui.tsRange!=='month'}">Week</button><button data-act="ts-range" data-v="month" aria-pressed="${ui.tsRange==='month'}">Month</button></div>
+      <button class="btn small" data-act="ts-move" data-v="-1" aria-label="Previous">‹</button>${cur ? '' : '<button class="btn small" data-act="ts-move" data-v="0">Today</button>'}<button class="btn small" data-act="ts-move" data-v="1" aria-label="Next">›</button>
+      <button class="btn small primary" data-act="ts-xlsx" title="Download this ${ui.tsRange === 'month' ? 'month' : 'week'} as an Excel file">Download Excel</button></div></div>
+  ${starter}
+  <div class="stats s4">
+    <div class="stat"><span class="n">${fmtHrs(tot)}</span><span class="l">Total ${ui.tsRange === 'month' ? 'this month' : 'this week'}</span></div>
+    <div class="stat"><span class="n">${fmtHrs(bill)}</span><span class="l">Billable</span></div>
+    <div class="stat"><span class="n">${tot ? Math.round(bill/tot*100) : 0}%</span><span class="l">Billable share</span></div>
+    <div class="stat"><span class="n">${fmtHrs(todaySec)}</span><span class="l">Logged today</span></div></div>
+  ${strip}
+  <div class="filters"><input class="search" id="q-ts" type="search" placeholder="Search client, work, category" value="${esc(ui.tsQ||'')}" data-act="q" data-key="tsQ"></div>
+  ${dayBlocks || `<div class="list"><div class="empty">No time logged ${ui.tsRange === 'month' ? 'this month' : 'this week'}${ui.tsQ ? ' that matches your search' : ''}. Start a timer above, or press ▶ on any task.</div></div>`}
+  ${summary}`;
+}
+function tsAgain(key){
+  const [d, eid] = key.split('|'); const doc = timeDays.get(d) || timeOld.get(d); const x = doc && (doc.entries || []).find(e => e.id === eid); if (!x) return;
+  if (x.taskId && tasks.has(x.taskId) && isOpen(tasks.get(x.taskId))) startTimer(x.taskId);
+  else startFree(x);
+}
+function tsStart(){
+  const {clientId, client} = clientByName(ui.tsClient);
+  startFree({title: (ui.tsWhat || '').trim(), clientId, client, category: ui.tsCat || 'Client work', billable: ui.tsBill !== false});
+  ui.tsWhat = ''; persistUi(); render();
+}
+// Excel export: SheetJS is loaded from the CDN only when someone asks for a file.
+let xlsxLib = null;
+function loadXlsx(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return xlsxLib ||= new Promise((ok, bad) => { const el = document.createElement('script');
+    el.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    el.onload = () => window.XLSX ? ok(window.XLSX) : bad(new Error('no XLSX')); el.onerror = () => { xlsxLib = null; bad(new Error('load failed')); };
+    document.head.appendChild(el); });
+}
+// Excel date and time serials, built from local calendar values so no time zone shift creeps in.
+const xlDate = isoD => { const [y,m,d] = isoD.split('-').map(Number); return (Date.UTC(y, m-1, d) - Date.UTC(1899, 11, 30)) / 864e5; };
+const xlTime = d => (d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds()) / 86400;
+async function tsExcel(btn){
+  const {s, e, label} = tsRange(), rows = entriesIn(iso(s), iso(e)).filter(tsMatch).sort(byStart);
+  if (!rows.length){ toast('Nothing to export for this period.'); return; }
+  if (btn){ btn.disabled = true; btn.textContent = 'Preparing…'; }
+  try {
+    const X = await loadXlsx();
+    const H = n => +((+n || 0) / 3600).toFixed(2);
+    const cell = (v, z) => v === '' || v == null ? {t:'s', v:''} : typeof v === 'number' ? (z ? {t:'n', v, z} : {t:'n', v}) : {t:'s', v: String(v)};
+    const sheet = (aoa, widths, extra) => { const ws = X.utils.aoa_to_sheet([[]]); X.utils.sheet_add_aoa(ws, aoa, {origin: 'A1'}); ws['!cols'] = widths.map(w => ({wch: w})); if (extra) extra(ws); return ws; };
+
+    // Entries
+    const head = ['Date', 'Day', 'Start', 'End', 'Hours', 'Client', 'Work', 'Category', 'Billable', 'Notes', 'From a task'];
+    const body = rows.map(x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
+      return [cell(xlDate(x.date), 'dd/mm/yyyy'), D(x.date).toLocaleDateString('en-AU', {weekday:'short'}), st ? cell(xlTime(st), 'h:mm AM/PM') : '', en ? cell(xlTime(en), 'h:mm AM/PM') : '',
+        cell(H(x.sec), '0.00'), nice(x.client) || 'Internal', x.title || '', x.category || 'Other', x.billable ? 'Yes' : 'No', x.notes || '', x.taskId ? 'Yes' : 'No']; });
+    const n = body.length, last = n + 1;
+    const tot = [{t:'s', v:'Total'}, '', '', '', {t:'n', f:`SUM(E2:E${last})`, v: H(sumSec(rows)), z:'0.00'}, '', '', '', '', '', ''];
+    const bil = [{t:'s', v:'Billable'}, '', '', '', {t:'n', f:`SUMIF(I2:I${last},"Yes",E2:E${last})`, v: H(sumSec(rows.filter(x => x.billable))), z:'0.00'}, '', '', '', '', '', ''];
+    const ws1 = sheet([head, ...body, [], tot, bil], [11, 6, 10, 10, 8, 34, 44, 18, 9, 36, 11], ws => { ws['!autofilter'] = {ref: `A1:K${last}`}; });
+
+    // By client
+    const byC = new Map(); for (const x of rows){ const k = nice(x.client) || `Internal · ${x.category || 'Other'}`; const o = byC.get(k) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; byC.set(k, o); }
+    const cl = [...byC.entries()].sort((a,b) => (b[1].b+b[1].n) - (a[1].b+a[1].n));
+    const cRows = cl.map(([k,o], i) => [k, o.b ? cell(H(o.b), '0.00') : '', o.n ? cell(H(o.n), '0.00') : '', {t:'n', f:`B${i+2}+C${i+2}`, v: H(o.b+o.n), z:'0.00'}]);
+    const cl1 = cl.length + 1, sumCol = (c, list) => ({t:'n', f:`SUM(${c}2:${c}${cl1})`, z:'0.00', v: +list.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0).toFixed(2)});
+    const ws2 = sheet([['Client', 'Billable hours', 'Non-billable hours', 'Total hours'], ...cRows, [], ['Total', sumCol('B', cRows), sumCol('C', cRows), sumCol('D', cRows)]], [40, 15, 18, 13]);
+
+    // By day
+    const days = new Map(); for (const x of rows){ const o = days.get(x.date) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; days.set(x.date, o); }
+    const dl = [...days.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+    const dRows = dl.map(([d,o], i) => [cell(xlDate(d), 'ddd dd/mm/yyyy'), o.b ? cell(H(o.b), '0.00') : '', o.n ? cell(H(o.n), '0.00') : '', {t:'n', f:`B${i+2}+C${i+2}`, v: H(o.b+o.n), z:'0.00'}]);
+    const dl1 = dl.length + 1, sumD = c => ({t:'n', f:`SUM(${c}2:${c}${dl1})`, z:'0.00', v: +dRows.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0).toFixed(2)});
+    const ws3 = sheet([['Date', 'Billable hours', 'Non-billable hours', 'Total hours'], ...dRows, [], ['Total', sumD('B'), sumD('C'), sumD('D')]], [18, 15, 18, 13]);
+
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws1, 'Timesheet');
+    X.utils.book_append_sheet(wb, ws2, 'By client');
+    X.utils.book_append_sheet(wb, ws3, 'By day');
+    wb.Props = {Title: `Timesheet ${label}`};
+    const buf = X.write(wb, {bookType: 'xlsx', type: 'array'});
+    const dlr = await window.claude.use('downloads'); if (!dlr){ toast('Downloads aren’t available here.'); return; }
+    await dlr.save({filename: `Timesheet ${iso(s)} to ${iso(e)}.xlsx`, data: new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});
+  } catch (err) {
+    if (!err || err.code !== 'declined') toast(err && err.message === 'load failed' ? 'The Excel tool couldn’t load. Check your connection and try again.' : 'The download didn’t work. Try again.');
+    console.error(err);
+  } finally { if (btn){ btn.disabled = false; btn.textContent = 'Download Excel'; } }
+}
+function parseDur(v){
+  v = String(v || '').trim().toLowerCase(); if (!v) return null; let m;
+  if ((m = v.match(/^(\d+):(\d{1,2})$/))) return +m[1]*3600 + +m[2]*60;
+  if ((m = v.match(/^(\d+(?:\.\d+)?)\s*h(?:rs?|ours?)?\s*(?:(\d+)\s*m(?:ins?)?)?$/))) return Math.round(+m[1]*3600 + (+m[2]||0)*60);
+  if ((m = v.match(/^(\d+)\s*m(?:ins?|inutes?)?$/))) return +m[1]*60;
+  if ((m = v.match(/^\d+(?:\.\d+)?$/))) return Math.round(+v*3600);
+  return NaN;
+}
+function findEntry(key){ const [d, eid] = String(key).split('|'); const doc = timeDays.get(d) || timeOld.get(d); return {date: d, x: doc && (doc.entries || []).find(e => e.id === eid)}; }
+function drawerTime(){
+  const isNew = !drawer.id; let x, date;
+  if (isNew){ x = {category: 'Client work', billable: true, ...drawer.draft}; date = drawer.draft.date || iso(today());
+    if (drawer.draft.client && !drawer.draft.title && !drawer.draft.category) x.category = 'Client work'; }
+  else { const f = findEntry(drawer.id); x = f.x; date = f.date; if (!x) return null; }
+  const st = x.start ? hm24(new Date(x.start)) : '', en = x.end ? hm24(new Date(x.end)) : '', du = x.sec ? durInput(x.sec) : '';
+  const tk = x.taskId && tasks.get(x.taskId);
+  return `<div class="d-head"><div class="grow"><div class="eyebrow">Timesheet</div><h2>${isNew ? 'Add time' : 'Time entry'}</h2>${isNew ? '<div class="sub">For anything you worked on, on the board or not.</div>' : `<div class="sub">${esc(D(date).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))} · ${fmtDur(x.sec)}</div>`}</div>
+      <button class="btn ghost small" data-act="close">Close</button></div>
+  <form class="d-body" id="timeForm" autocomplete="off">
+    <div class="field"><label for="x-title">Work done</label><input id="x-title" name="title" value="${esc(x.title||'')}" placeholder="e.g. Reconciled September bank feeds" ${isNew?'data-autofocus':''}${dis()}></div>
+    <div class="two"><div class="field"><label for="x-client">Client</label><input id="x-client" name="client" list="clientList" value="${esc(nice(x.client)||'')}" placeholder="Leave blank for internal time"${dis()}>${clientOptions()}</div>
+      <div class="field"><label for="x-cat">Category</label><select id="x-cat" name="category"${dis()}>${CATS.map(c => `<option${(x.category||'Other')===c?' selected':''}>${c}</option>`).join('')}</select></div></div>
+    <div class="three"><div class="field"><label for="x-date">Date</label><input id="x-date" name="date" type="date" value="${esc(date)}" required${dis()}></div>
+      <div class="field"><label for="x-st">Start</label><input id="x-st" name="start" type="time" value="${st}"${dis()}></div>
+      <div class="field"><label for="x-en">End</label><input id="x-en" name="end" type="time" value="${en}"${dis()}></div></div>
+    <div class="two"><div class="field"><label for="x-dur">Duration</label><input id="x-dur" name="dur" value="${du}" placeholder="1:30 or 1.5"${dis()}><input type="hidden" name="durOrig" value="${du}"></div>
+      <label class="check" style="align-self:end;padding-bottom:9px"><input type="checkbox" name="billable" ${x.billable?'checked':''}${dis()}> Billable</label></div>
+    <div class="hint">Give a start and end time, or just a duration such as 1:30 or 1.5 hours.</div>
+    <div class="field"><label for="x-notes">Notes</label><textarea id="x-notes" name="notes" style="min-height:70px"${dis()}>${esc(x.notes||'')}</textarea></div>
+    ${x.taskId ? `<div class="hint">From the task ${tk ? `<button type="button" class="linkish" data-act="open-task" data-id="${esc(x.taskId)}">${esc(tk.title)}${tk.period?` · ${esc(tk.period)}`:''}</button>` : `<b>${esc(x.title||'')}</b>`}. Changing the time here updates the task's total.</div>` : ''}
+  </form>
+  <div class="d-foot">${!isNew && !readOnly ? (drawer.confirmDel ? `<span><button class="btn warn" data-act="del-time">Delete entry</button> <button class="btn ghost" data-act="cancel-del">Keep</button></span>` : `<button class="btn ghost danger" data-act="ask-del">Delete</button>`) : '<span></span>'}
+    ${readOnly ? '' : `<button class="btn primary" data-act="save-time">${isNew ? 'Add to timesheet' : 'Save changes'}</button>`}</div>`;
+}
+async function saveTime(){
+  const fd = formData('timeForm'); if (!fd) return;
+  const date = val(fd,'date') || iso(today()), st = val(fd,'start'), en = val(fd,'end'), durS = val(fd,'dur'), dur = parseDur(durS);
+  if (Number.isNaN(dur)){ toast('Write the duration like 1:30 or 1.5.'); return; }
+  let start = '', end = '', sec = null;
+  const sD = st ? new Date(`${date}T${st}`) : null;
+  if (sD) start = sD.toISOString();
+  const durChanged = durS !== val(fd,'durOrig');
+  if (sD && en && !(durChanged && dur != null)){ let eD = new Date(`${date}T${en}`); if (eD <= sD) eD = addDays(eD, 1); end = eD.toISOString(); sec = Math.round((eD - sD) / 1000); }
+  else if (dur != null){ sec = dur; if (sD) end = new Date(sD.getTime() + sec*1000).toISOString(); }
+  if (sec == null){ toast('Enter a duration, or a start and end time.'); return; }
+  if (sec <= 0 || sec > 24*3600){ toast('That entry needs to be between a minute and 24 hours.'); return; }
+  const {clientId, client} = clientByName(val(fd,'client'));
+  const base = {title: val(fd,'title'), clientId, client, category: val(fd,'category') || 'Other', billable: fd.get('billable') === 'on', notes: String(fd.get('notes')||''), start, end, sec};
+  if (!drawer.id){
+    const entry = {id: rid('e'), taskId: drawer.draft.taskId || '', source: 'manual', by: meName(), created: nowIso(), ...base};
+    closeDrawer(); await addEntry(date, entry).catch(()=>{}); adjustTask(entry.taskId, sec);
+    toast(`Added ${fmtDur(sec)} to your timesheet`);
+  } else {
+    const {date: od, x: old} = findEntry(drawer.id); if (!old){ closeDrawer(); return; }
+    const entry = {...old, ...base, edited: nowIso()};
+    closeDrawer();
+    if (od === date) await mutateDay(date, es => es.map(e => e.id === old.id ? entry : e)).catch(()=>{});
+    else { await removeEntry(od, old.id).catch(()=>{}); await addEntry(date, entry).catch(()=>{}); }
+    adjustTask(old.taskId, sec - (+old.sec || 0));
+    toast('Time entry saved');
+  }
+}
+function delTime(){
+  const {date, x} = findEntry(drawer.id); closeDrawer(); if (!x) return;
+  removeEntry(date, x.id).then(() => { adjustTask(x.taskId, -(+x.sec||0));
+    toast('Time entry deleted', () => { addEntry(date, x).catch(()=>{}); adjustTask(x.taskId, +x.sec||0); }); }).catch(()=>{});
+}
+
+// ---------- client notes and history ----------
+const NOTE_KINDS = ['Note', 'Call', 'Email', 'Meeting', 'Info request'];
+const notesOf = cid => [...notes.entries()].filter(([,n]) => n.clientId === cid).sort((a,b) => (b[1].at||'').localeCompare(a[1].at||'') || (b[1].created||'').localeCompare(a[1].created||''));
+const openReqs = cid => { let n = 0; for (const x of notes.values()) if (x.clientId === cid && x.kind === 'Info request' && x.open) n++; return n; };
+async function addNote(){
+  const el = id => document.getElementById(id);
+  const text = (el('n-text')?.value || '').trim(); if (!text){ toast('Write the note first.'); el('n-text')?.focus(); return; }
+  const kind = el('n-kind').value, at = el('n-at').value || iso(today()), cid = drawer.id;
+  el('n-text').value = ''; if (drawer.dirty) delete drawer.dirty['n-text'];
+  await put('notes', rid('n'), {clientId: cid, client: (clients.get(cid)||{}).name || '', kind, text, at, by: (settings.me||[])[0] || '', open: kind === 'Info request', created: nowIso()}).catch(()=>{});
+  toast(kind === 'Info request' ? 'Info request logged' : 'Added to history');
+}
+function delNote(id){
+  const n = notes.get(id); if (!n) return;
+  del('notes', id).then(() => toast('Note deleted', () => put('notes', id, n).catch(()=>{}))).catch(()=>{});
+}
+
+// ---------- generator: creates the next period of each recurring job ----------
+let generating = false, genAgain = false;
+async function ensureInstances(){
+  if (!db || !loaded || readOnly || restoring) return;
+  if (generating){ genAgain = true; return; }
+  generating = true;
+  try {
+    const t0 = today(), end = addDays(t0, +settings.horizonDays || 45), floor = addDays(t0, -120);
+    // Loop over copies: each write triggers a live update that rebuilds these maps mid-loop.
+    for (const [jid, j] of [...jobs]){
+      if (!j.active) continue;
+      const from = j.from ? D(j.from) : floor, start = from > floor ? from : floor;
+      for (const p of periodsFor(j, start, end)){
+        const id = `${jid}--${p.key}`;
+        if (tasks.has(id)) continue;
+        const ref = db.doc(`tasks/${id}`);
+        const snap = await ref.get();
+        if (snap.exists) continue;
+        await queue(`tasks/${id}`, () => ref.set({
+          jobId: jid, clientId: j.clientId || '', client: j.client || '', title: j.title, ws: j.ws || 'other',
+          periodKey: p.key, period: p.label, due: iso(p.due), status: 'Not started', owner: j.owner || '',
+          notes: '', steps: (j.steps || []).map(n => ({n, d:false})), priority: !!j.priority, estMin: +j.estMin || 0,
+          doneAt: '', created: nowIso(), updated: nowIso()
+        }));
+      }
+    }
+  } catch (e) { console.error(e); }
+  finally { generating = false; if (genAgain){ genAgain = false; ensureInstances(); } }
+}
+
+// ---------- data load ----------
+function mapFrom(snap, map){ map.clear(); snap.docs.forEach(d => map.set(d.id, d.data())); }
+function rebuildTasks(){ tasks.clear(); for (const src of Object.values(taskSrc)) for (const [k,v] of src) tasks.set(k, v); }
+function markReady(k, snap){
+  if (snap && snap.metadata && snap.metadata.fromCache) return;
+  ready[k] = true;
+  if (!loaded && Object.values(ready).every(Boolean)) { loaded = true; render(); ensureInstances(); setTimeout(maybeAutoBackup, 4000); }
+}
+const scheduleRender = (() => { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; render(); }); }; })();
+
+async function boot(){
+  render();
+  try { db = await window.claude?.use?.('db'); } catch { db = null; }
+  if (!db){ dbMissing = true; render(); return; }
+  const cutoff = iso(addDays(today(), -300));
+  const err = e => { console.error(e); if (e && e.code === 'revoked') { dbMissing = true; scheduleRender(); } };
+  db.collection('clients').onSnapshot(s => { mapFrom(s, clients); markReady('clients', s); scheduleRender(); }, err);
+  db.collection('jobs').onSnapshot(s => { mapFrom(s, jobs); markReady('jobs', s); scheduleRender(); }, err);
+  db.collection('tasks').where('due', '>=', cutoff).onSnapshot(s => { mapFrom(s, taskSrc.due); rebuildTasks(); markReady('due', s); scheduleRender(); }, err);
+  db.collection('tasks').where('status', 'in', OPEN).onSnapshot(s => { mapFrom(s, taskSrc.open); rebuildTasks(); markReady('open', s); scheduleRender(); }, err);
+  db.collection('tasks').where('doneAt', '>=', cutoff).onSnapshot(s => { mapFrom(s, taskSrc.done); rebuildTasks(); markReady('done', s); scheduleRender(); }, err);
+  db.collection('time').where('date', '>=', timeCutoff).onSnapshot(s => { mapFrom(s, timeDays); markReady('time', s); scheduleRender(); }, err);
+  db.doc('settings/timer').onSnapshot(s => { const d = s.exists ? s.data() : null; freeTimer = d && d.start ? d : null; markReady('timer', s); scheduleRender(); }, err);
+  db.collection('notes').onSnapshot(s => { mapFrom(s, notes); markReady('notes', s); scheduleRender(); }, err);
+  db.doc('settings/app').onSnapshot(s => { if (s.exists) settings = {...settings, ...s.data()}; markReady('settings', s); scheduleRender(); }, err);
+  setTimeout(() => { if (!loaded){ Object.keys(ready).forEach(k => ready[k] = true); loaded = true; render(); ensureInstances(); setTimeout(maybeAutoBackup, 4000); } }, 8000);
+  try { const u = await window.claude.use('user'); if (u && typeof u.can === 'function'){ const c = await u.can('data.write'); canWrite = c; if (c === false) { readOnly = true; scheduleRender(); } } } catch {}
+}
+
+// ---------- rendering ----------
+const app = document.getElementById('app');
+// A redraw replaces the page's HTML, which closes any dropdown the viewer has open.
+// Live updates arrive at any moment, so hold the redraw until the dropdown is closed.
+let heldRender = false;
+function holdForSelect(){
+  const el = document.activeElement;
+  if (!el || el.tagName !== 'SELECT' || !app.contains(el)) return false;
+  if (!heldRender){ heldRender = true; const go = () => { el.removeEventListener('blur', go); if (heldRender){ heldRender = false; render(); } }; el.addEventListener('blur', go); }
+  return true;
+}
+function render(force){
+  if (!force && holdForSelect()) return;
+  heldRender = false;
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.view === ui.view ? 'page' : 'false'));
+  if (dbMissing){ app.innerHTML = `<div class="empty"><h2>Your board could not load here</h2><p>${window.WB_STANDALONE ? 'Check your internet connection, then reload the page.' : 'Open this page on claude.ai while signed in to see and update your work.'}</p></div>`; return; }
+  if (!loaded){ app.innerHTML = `<div class="empty">Loading your work board…</div>`; return; }
+  if (!clients.size && !jobs.size && !tasks.size){
+    app.innerHTML = `<div class="empty"><h2>Nothing on the board yet</h2><p>Add a client, then a recurring job such as a monthly BAS. Each period's task appears here with its due date.</p><p><button class="btn primary" data-new="job">Add a recurring job</button></p>${window.WB_STANDALONE ? `<p class="hint">Moving your board across? Open Settings, then under Restore choose the backup file you downloaded.</p><p><button class="btn" data-open-settings>Open Settings</button></p>` : ''}</div>`;
+    return;
+  }
+  const v = {today:viewToday, board:viewBoard, clients:viewClients, all:viewAll, notes:viewNotes, time:viewTime, deadlines:viewDeadlines}[ui.view] || viewToday;
+  const fa = document.activeElement;
+  const keepFocus = fa && app.contains(fa) && fa.id && fa.tagName !== 'SELECT' ? fa.id : null;
+  const selStart = keepFocus ? document.activeElement.selectionStart : null;
+  shownIds = [];
+  const html = v();
+  if (ui.view !== 'today' && ui.view !== 'all'){ selMode = false; tPicked.clear(); }
+  for (const id of [...tPicked]) if (!tasks.has(id)) tPicked.delete(id);
+  app.innerHTML = (readOnly ? `<div class="banner">You can view this board. Only its owner and editors can change it.</div>` : '') + html + (selMode ? taskSelBar() : '');
+  if (keepFocus){ const el = document.getElementById(keepFocus); if (el){ el.focus(); try { el.setSelectionRange(selStart, selStart); } catch {} } }
+  if (drawer && !drawerBusy()) renderDrawer();
+  renderTimer();
+}
+
+function dueBits(t){
+  if (!t.due) return {cls:'', d:'—', small:'No date'};
+  const n = dayDiff(D(t.due), today());
+  if (!isOpen(t)) return {cls:'', d:fmtD(t.due), small: t.status === 'Done' ? 'Done' : 'N/A'};
+  if (n < 0) return {cls:'late', d:fmtD(t.due), small:`${-n} day${n===-1?'':'s'} late`};
+  if (n === 0) return {cls:'late', d:fmtD(t.due), small:'Due today'};
+  if (n === 1) return {cls:'soon', d:fmtD(t.due), small:'Tomorrow'};
+  return {cls: n <= (+settings.dueSoonDays||7) ? 'soon' : '', d:fmtD(t.due), small:`in ${n} days`};
+}
+function statusSelect(id, st){
+  return `<select class="pill s-${SC[st]||'ns'}" data-act="status" data-id="${esc(id)}" aria-label="Status"${readOnly?' disabled':''}>${STATUSES.map(s => `<option${s===st?' selected':''}>${s}</option>`).join('')}</select>`;
+}
+function taskRow(id, t){
+  const db_ = dueBits(t), steps = t.steps || [], done = steps.filter(s => s.d).length;
+  const closed = !isOpen(t), on = tPicked.has(id);
+  shownIds.push(id);
+  const box = selMode
+    ? `<button class="chk sel${on?' on':''}" data-act="tpick" data-id="${esc(id)}" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(t.title)}"></button>`
+    : `<button class="chk${t.status==='Done'?' on':''}" data-act="toggle" data-id="${esc(id)}" aria-label="${t.status==='Done'?'Mark not done':'Mark done'}"${readOnly?' disabled':''}></button>`;
+  return `<div class="row${closed?' closed':''}${selMode&&on?' picked':''}" data-task="${esc(id)}">
+    ${box}
+    <div class="main"><div class="t1">${esc(nice(t.client) || 'General')}${t.priority?'<span class="flag">PRIORITY</span>':''}</div>
+      <div class="t2">${esc(t.title)}${t.period?` · <span class="per">${esc(t.period)}</span>`:''}${steps.length?` · ${done}/${steps.length} steps`:''}${t.timeSec||t.timerStart?` · <span class="tspent${t.timerStart?' run':''}" data-tick="${esc(id)}">${fmtDur(elapsed(t))}</span>`:''}${t.notes?` · ${esc(t.notes.slice(0,80))}`:''}</div></div>
+    <span class="ws-tag">${esc(WS[t.ws] || 'Other')}</span>
+    <div class="due ${db_.cls}"><span class="d">${db_.d}</span><small>${db_.small}</small></div>
+    <div class="stwrap">${statusSelect(id, t.status)}${timerBtn(id, t)}${pinBtn(id, t)}</div>
+    <span class="owner owner-col">${esc(t.owner || '')}</span>
+  </div>`;
+}
+const selBtn = () => readOnly ? '' : `<button class="chip" data-act="selmode" aria-pressed="${selMode}">${selMode?'Done selecting':'Select tasks'}</button>`;
+function taskSelBar(){
+  const n = tPicked.size, all = shownIds.length && shownIds.every(id => tPicked.has(id));
+  return `<div class="selbar tselbar" role="region" aria-label="Selected tasks"><b>${n ? `${n} selected` : 'Tap tasks to select them'}</b>
+    ${n ? `<span class="sts">${STATUSES.map(st => `<button class="s-${SC[st]}" data-act="bulk" data-v="${esc(st)}">${esc(st)}</button>`).join('')}</span>` : ''}
+    ${n ? `<button class="btn ghost small" data-act="bulk-pin" data-v="1">Pin to focus</button><button class="btn ghost small" data-act="bulk-pin" data-v="0">Unpin</button>` : ''}
+    <span class="grow"></span>
+    ${shownIds.length ? `<button class="btn ghost small" data-act="tpick-all">${all ? 'Unselect all' : `Select all ${shownIds.length} shown`}</button>` : ''}
+    ${n ? '<button class="btn ghost small" data-act="tpick-clear">Clear</button>' : ''}</div>`;
+}
+function bulkStatus(status){
+  const ids = [...tPicked].filter(id => tasks.has(id) && tasks.get(id).status !== status);
+  if (!ids.length){ toast(`Already ${status}`); return; }
+  const undos = ids.map(id => setStatus(id, status, {quiet:true})).filter(Boolean);
+  tPicked.clear(); render(true);
+  toast(`${ids.length} task${ids.length===1?'':'s'} → ${status}`, () => undos.forEach(u => u()));
+}
+function listBlock(title, rows, cls = '', limit = 0, key = ''){
+  if (!rows.length) return '';
+  const showAll = !limit || ui['more-'+key];
+  const shown = showAll ? rows : rows.slice(0, limit);
+  const sk = 'sec-' + (key || title.replace(/[0-9]+/g,'').trim().toLowerCase()), shut = !!ui.shut[sk];
+  return `<section class="group"><button class="group-h sec-tog ${cls}${shut?' shut':''}" data-act="shut" data-key="${esc(sk)}" aria-expanded="${!shut}"><span class="caret"></span><h2>${title}</h2><span class="count">${rows.length}</span></button>
+    ${shut ? '' : `<div class="list">${shown.map(([id,t]) => taskRow(id,t)).join('')}
+    ${!showAll && rows.length > limit ? `<button class="more" data-act="more" data-key="${key}">Show ${rows.length-limit} more</button>` : ''}</div>`}</section>`;
+}
+const byDue = (a,b) => (a[1].due||'9999').localeCompare(b[1].due||'9999') || (b[1].priority?1:0)-(a[1].priority?1:0) || nice(a[1].client).localeCompare(nice(b[1].client));
+function matchQ(t, q){ if (!q) return true; q = q.toLowerCase(); return [t.client, nice(t.client), t.title, t.period, t.notes, t.owner].some(x => String(x||'').toLowerCase().includes(q)); }
+
+function viewToday(){
+  const t0 = today(), soon = +settings.dueSoonDays || 7, monthStart = iso(new Date(t0.getFullYear(), t0.getMonth(), 1));
+  let all = [...tasks.entries()].filter(([,t]) => (!ui.mine || isMine(t)) && inGrp(t.clientId));
+  const open = all.filter(([,t]) => isOpen(t));
+  const late = open.filter(([,t]) => t.due && dayDiff(D(t.due), t0) < 0);
+  const week = open.filter(([,t]) => t.due && dayDiff(D(t.due), t0) >= 0 && dayDiff(D(t.due), t0) <= soon);
+  const waiting = open.filter(([,t]) => t.status === 'Waiting on client');
+  const review = open.filter(([,t]) => t.status === 'For review');
+  const doneMonth = all.filter(([,t]) => t.status === 'Done' && t.doneAt && iso(new Date(t.doneAt)) >= monthStart);
+  let view = open.filter(([,t]) => (!ui.ws || t.ws === ui.ws) && matchQ(t, ui.q));
+  if (ui.stat === 'waiting') view = view.filter(([,t]) => t.status === 'Waiting on client');
+  if (ui.stat === 'review') view = view.filter(([,t]) => t.status === 'For review');
+  view.sort(byDue);
+  const t0s = iso(t0), byPin = (a,b) => (a[1].focus||'').localeCompare(b[1].focus||'');
+  const focusOpen = view.filter(([,t]) => t.focus).sort(byPin);
+  const focusDone = all.filter(([,t]) => t.focus && !isOpen(t) && t.doneAt && iso(new Date(t.doneAt)) === t0s && (!ui.ws || t.ws === ui.ws) && matchQ(t, ui.q)).sort(byPin);
+  view = view.filter(([,t]) => !t.focus);
+  const g = {late:[], week:[], next:[], later:[], none:[]};
+  for (const e of view){ const t = e[1]; if (!t.due){ g.none.push(e); continue; } const n = dayDiff(D(t.due), t0);
+    if (n < 0) g.late.push(e); else if (n <= soon) g.week.push(e); else if (n <= 21) g.next.push(e); else g.later.push(e); }
+  const recentDone = all.filter(([,t]) => t.status === 'Done' && t.doneAt && dayDiff(t0, new Date(t.doneAt)) <= 7 && !(t.focus && iso(new Date(t.doneAt)) === t0s) && (!ui.ws || t.ws === ui.ws) && matchQ(t, ui.q))
+    .sort((a,b) => (b[1].doneAt||'').localeCompare(a[1].doneAt||''));
+  const rep = addMonths(t0.getFullYear(), t0.getMonth()+1, -1);
+  const nextBas = nextOn(21), nextQ = nextQtrBas();
+  const used = new Set([...tasks.values()].map(t => t.ws)), wsUsed = Object.keys(WS).filter(w => used.has(w));
+  const statBtn = (key, n, l, cls='') => `<button class="stat ${cls}" data-act="stat" data-key="${key}" aria-pressed="${ui.stat===key}"><span class="n">${n}</span><span class="l">${l}</span></button>`;
+  const fN = focusOpen.length + focusDone.length, fShut = !!ui.shut['sec-focus'];
+  const focusBlock = ui.stat ? '' : `<section class="focus"><div class="focus-top"><button class="group-h sec-tog${fShut?' shut':''}" data-act="shut" data-key="sec-focus" aria-expanded="${!fShut}"><span class="caret"></span><h2>Today's focus</h2><span class="count">${fN ? `${focusDone.length} of ${fN} done` : ''}</span></button><span class="grow"></span>${fN && !readOnly ? '<button class="btn ghost small" data-act="focus-clear">Clear</button>' : ''}</div>
+    ${fShut ? '' : fN ? `<div class="list">${[...focusOpen, ...focusDone].map(([id,t]) => taskRow(id,t)).join('')}</div>` : `<div class="focus-empty">Nothing pinned yet. Use the ${IC.pin} pin on any task to plan what you're doing today.</div>`}</section>`;
+  const body = [
+    focusBlock,
+    listBlock('Overdue', g.late, 'late'),
+    listBlock(`Due in the next ${soon} days`, g.week),
+    listBlock('Coming up (next 3 weeks)', g.next, '', 25, 'next'),
+    listBlock('Later', g.later, '', 10, 'later'),
+    listBlock('No due date', g.none),
+    recentDone.length && !ui.stat ? listBlock('Done in the last 7 days', recentDone, '', 6, 'done') : ''
+  ].join('');
+  return `
+  <div class="today-head">
+    <div><div class="eyebrow">${fmtLong(t0)}</div><h1>${ui.mine ? 'Your work' : 'Everyone\'s work'}${ui.grp?` · ${esc(ui.grp)}`:''}</h1>
+      <div class="sub">Reporting period ${MON[rep[1]-1]} ${String(rep[0]).slice(2)} · month-end close</div></div>
+    <div class="statut"><span>Monthly BAS/IAS <b class="mono">${fmtD(iso(nextBas))}</b> · ${dayDiff(nextBas,t0)}d</span><span>Quarterly BAS <b class="mono">${fmtD(iso(nextQ))}</b> · ${dayDiff(nextQ,t0)}d</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat ${late.length?'late':''}"><span class="n">${late.length}</span><span class="l">Overdue</span></div>
+    <div class="stat ${week.length?'soon':''}"><span class="n">${week.length}</span><span class="l">Due in ${soon} days</span></div>
+    ${statBtn('waiting', waiting.length, 'Waiting on client')}
+    ${statBtn('review', review.length, 'For review')}
+    <div class="stat"><span class="n">${doneMonth.length}</span><span class="l">Done in ${MON[t0.getMonth()]}</span></div>
+  </div>
+  <div class="filters">
+    <div class="seg" role="group" aria-label="Whose work"><button data-act="mine" data-v="1" aria-pressed="${!!ui.mine}">Mine</button><button data-act="mine" data-v="0" aria-pressed="${!ui.mine}">Everyone</button></div>
+    <button class="chip" data-act="ws" data-v="" aria-pressed="${!ui.ws}">All work</button>
+    ${wsUsed.map(w => `<button class="chip" data-act="ws" data-v="${w}" aria-pressed="${ui.ws===w}">${esc(WS[w])}</button>`).join('')}
+    ${grpFilter()}
+    ${selBtn()}
+    <input class="search" id="q-today" type="search" placeholder="Search client, task, note" value="${esc(ui.q)}" data-act="q" data-key="q">
+  </div>
+  ${ui.stat ? `<div class="hint">Showing only “${ui.stat==='waiting'?'Waiting on client':'For review'}”. <button class="linkish" data-act="stat" data-key="${ui.stat}">Show everything</button></div>` : ''}
+  ${body || `<div class="list"><div class="empty">Nothing open here. ${ui.mine?'Switch to Everyone to see the rest of the team\'s work.':''}</div></div>`}`;
+}
+function nextOn(day){ const t = today(); let d = new Date(t.getFullYear(), t.getMonth(), day, 12); if (roll(d,true) < t) d = new Date(t.getFullYear(), t.getMonth()+1, day, 12); return roll(d, true); }
+function nextQtrBas(){ const t = today(), y = t.getFullYear(); const c = [[y,2],[y,4],[y,7],[y,10],[y+1,2]].map(([yy,m]) => roll(new Date(yy,m-1,28,12),true)); return c.find(d => d >= t); }
+
+// Tracker (board) view
+function anchorMonth(t){
+  const k = t.periodKey || '';
+  if (k[0]==='M' || k[0]==='Q') return k.slice(1,8);
+  if (k[0]==='W') return k.slice(1,8);
+  return (t.due || '').slice(0,7);
+}
+function viewBoard(){
+  const t0 = today(), cols = [];
+  for (let i=-3;i<=1;i++){ const [y,m] = addMonths(t0.getFullYear(), t0.getMonth()+1, i); cols.push({k:`${y}-${pad(m)}`, l:`${MON[m-1]} ${String(y).slice(2)}`, cur:i===0}); }
+  const ws = ui.boardWs;
+  const rows = [...jobs.entries()].filter(([,j]) => j.ws === ws && inGrp(j.clientId))
+    .sort((a,b) => nice(a[1].client).localeCompare(nice(b[1].client)) || a[1].title.localeCompare(b[1].title));
+  const byJob = new Map();
+  for (const [id,t] of tasks){ if (!t.jobId) continue; const a = anchorMonth(t); if (!byJob.has(t.jobId)) byJob.set(t.jobId, new Map()); const m = byJob.get(t.jobId); if (!m.has(a)) m.set(a, []); m.get(a).push([id,t]); }
+  const cell = ([id,t]) => { const late = isOpen(t) && t.due && D(t.due) < t0; const lab = t.periodKey && t.periodKey[0]==='W' ? `${D(t.periodKey.slice(1)).getDate()}` : (t.periodKey && t.periodKey[0]==='Q' ? 'Q' : fmtD(t.due).split(' ')[0] || '•');
+    return `<button class="cell s-${SC[t.status]||'ns'}${late?' overdue':''}" data-act="open-task" data-id="${esc(id)}" title="${esc(`${t.period||''} · ${t.status} · due ${fmtD(t.due)}`)}">${esc(lab)}</button>`; };
+  const counts = Object.keys(WS).map(w => [w, [...jobs.values()].filter(j => j.ws === w && j.active && inGrp(j.clientId)).length]).filter(([w,n]) => n || w === ws);
+  return `<div class="today-head"><div><div class="eyebrow">Tracker</div><h1>${esc(WS[ws])}</h1><div class="sub">One row per recurring job. New periods appear on their own; click a square to update it.</div></div>
+    <button class="btn" data-new="job" data-ws="${ws}">+ Recurring job</button></div>
+  <div class="filters">${counts.map(([w,n]) => `<button class="chip" data-act="boardws" data-v="${w}" aria-pressed="${ws===w}">${esc(WS[w])} <span class="mono">${n}</span></button>`).join('')}${grpFilter()}</div>
+  <div class="board-wrap"><table class="board"><thead><tr><th>Client · job</th>${cols.map(c => `<th class="${c.cur?'cur':''}">${c.l}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(([jid,j]) => { const m = byJob.get(jid) || new Map();
+    return `<tr><td class="job" data-act="open-job" data-id="${esc(jid)}"><div class="t1">${esc(nice(j.client))}${j.active?'':' <span class="badge s-na">Paused</span>'}</div><div class="t2">${esc(j.title)} · ${esc(FREQ[j.freq]||j.freq)}${j.owner?` · ${esc(j.owner)}`:''}</div></td>
+      ${cols.map(c => `<td class="${c.cur?'cur':''}"><div class="cells">${(m.get(c.k)||[]).sort((a,b)=>(a[1].due||'').localeCompare(b[1].due||'')).map(cell).join('')}</div></td>`).join('')}</tr>`; }).join('') || `<tr><td colspan="6" class="empty">${ui.grp?'No recurring jobs in this workstream for this group.':'No recurring jobs in this workstream yet.'}</td></tr>`}
+  </tbody></table></div>
+  <div class="legend">${STATUSES.map(s => `<span class="badge s-${SC[s]}">${s}</span>`).join('')}<span>Red outline = overdue. Squares show the due day; “Q” marks a quarter.</span></div>`;
+}
+
+// Clients view
+function clientStats(){
+  const t0 = today(), st = new Map();
+  for (const t of tasks.values()){
+    if (!t.clientId || !isOpen(t)) continue;
+    const s = st.get(t.clientId) || {open:0, late:0, next:''}; s.open++;
+    if (t.due && D(t.due) < t0) s.late++;
+    if (t.due && (!s.next || t.due < s.next)) s.next = t.due;
+    st.set(t.clientId, s);
+  }
+  const jc = new Map(); for (const j of jobs.values()) if (j.active) jc.set(j.clientId, (jc.get(j.clientId)||0)+1);
+  return {st, jc};
+}
+function viewClients(){
+  const {st, jc} = clientStats(), q = (ui.clientQ||'').toLowerCase();
+  const hasWork = id => jc.get(id) || (st.get(id)||{}).open;
+  const rows = [...clients.entries()].filter(([id,c]) => (ui.showInactive || c.active !== false) && inGrp(id) && (!q || [c.name, nice(c.name), c.group, c.software, c.partner, c.manager].some(x => String(x||'').toLowerCase().includes(q))))
+    .sort((a,b) => (hasWork(a[0]) ? 0 : 1) - (hasWork(b[0]) ? 0 : 1) || nice(a[1].name).localeCompare(nice(b[1].name)));
+  const withWork = rows.filter(([id]) => hasWork(id)).length;
+  for (const id of [...picked]) if (!clients.has(id)) picked.delete(id);
+  const grouped = ui.clientView === 'groups';
+  const canPick = !readOnly;
+  const head = `<thead><tr>${canPick?'<th class="pick"><span class="sr">Select</span></th>':''}<th>Client</th><th>Team (P · S · M)</th><th>Software</th><th class="num">Jobs</th><th class="num">Open</th><th>Next due</th></tr></thead>`;
+  const tr = ([id,c]) => { const s = st.get(id) || {open:0,late:0,next:''}; const tm = c.team || {}; const g = groupLabel(c);
+    const sub = [grouped ? '' : g, c.partner].filter(Boolean).map(nice).join(' · ');
+    return `<tr data-act="open-client" data-id="${esc(id)}">${canPick?`<td class="pick"><input type="checkbox" data-act="pick" data-id="${esc(id)}" aria-label="Select ${esc(nice(c.name))}" ${picked.has(id)?'checked':''}></td>`:''}<td><div class="t1">${esc(nice(c.name))}${c.active===false?' <span class="badge s-na">Inactive</span>':''}${(n => n ? ` <span class="badge s-wc">${n} info request${n===1?'':'s'} out</span>` : '')(openReqs(id))}</div>${sub?`<div class="t2">${esc(sub)}</div>`:''}</td>
+      <td class="team">${esc(tm.processor||'–')} <span>·</span> ${esc(tm.senior||'–')} <span>·</span> ${esc(tm.manager||'–')}</td>
+      <td>${esc(c.software||'')}</td><td class="num">${jc.get(id)||''}</td>
+      <td class="num">${s.open||''}${s.late?` <span class="late-n">(${s.late} late)</span>`:''}</td><td class="mono">${s.next?fmtD(s.next):''}</td></tr>`; };
+  const table = list => `<div class="tbl-wrap"><table class="grid">${head}<tbody>${list.map(tr).join('') || `<tr><td colspan="7" class="empty">No clients match.</td></tr>`}</tbody></table></div>`;
+  let body;
+  if (!grouped) body = table(rows);
+  else {
+    const secs = new Map();
+    for (const r of rows){ const g = groupOfClient(r[1]); const k = g.toLowerCase(); if (!secs.has(k)) secs.set(k, {name:g, rows:[]}); secs.get(k).rows.push(r); }
+    const order = [...secs.values()].sort((a,b) => (!a.name) - (!b.name) || b.rows.length - a.rows.length || a.name.localeCompare(b.name));
+    body = order.map(sec => {
+      const key = sec.name ? sec.name.toLowerCase() : '~none', shut = !!ui.shut[key] && !q;
+      let open = 0, late = 0, nj = 0; for (const [id] of sec.rows){ const x = st.get(id); if (x){ open += x.open; late += x.late; } nj += jc.get(id) || 0; }
+      const title = sec.name || 'Not in a group';
+      const allPicked = sec.rows.every(([id]) => picked.has(id));
+      return `<section class="grp-sec"><div class="grp-h${shut?' shut':''}">
+        <button class="tog" data-act="shut" data-key="${esc(key)}" aria-expanded="${!shut}"><span class="caret"></span><h2>${esc(title)}</h2></button>
+        <span class="meta">${sec.rows.length} client${sec.rows.length===1?'':'s'}${nj?` · ${nj} jobs`:''}${open?` · ${open} open`:''}${late?` · <span class="late-n">${late} late</span>`:''}</span>
+        <span class="sp"></span>
+        ${canPick?`<button class="btn ghost small" data-act="pick-grp" data-key="${esc(key)}">${allPicked?'Unselect all':'Select all'}</button>`:''}
+        ${sec.name && !ui.grp ? `<button class="btn small" data-act="grp-go" data-v="${esc(sec.name)}">Show only this group</button>` : ''}
+      </div>${shut ? '' : table(sec.rows)}</section>`;
+    }).join('') || table([]);
+  }
+  const gl = groupList();
+  const bar = canPick && picked.size ? `<div class="selbar" role="region" aria-label="Selected clients"><b>${picked.size} selected</b>
+      <input id="grpName" list="grpList" placeholder="Group name, new or existing" aria-label="Group name">
+      <button class="btn primary small" data-act="grp-apply">Put in group</button>
+      <button class="btn small" data-act="grp-remove">Remove from group</button>
+      <button class="btn ghost small" data-act="pick-clear">Clear</button></div>` : '';
+  return `<div class="today-head"><div><div class="eyebrow">Clients</div><h1>${ui.grp ? esc(ui.grp) : `${rows.length} client${rows.length===1?'':'s'}`}</h1><div class="sub">${ui.grp ? `${rows.length} client${rows.length===1?'':'s'} in this group · ` : ''}${withWork} with recurring jobs or open work.${canPick?' Tick clients to put them in a group.':''}</div></div>
+    <button class="btn" data-new="client">+ Client</button></div>
+  <div class="filters">
+    <div class="seg" role="group" aria-label="Layout"><button data-act="cview" data-v="groups" aria-pressed="${grouped}">By group</button><button data-act="cview" data-v="list" aria-pressed="${!grouped}">List</button></div>
+    ${grpFilter()}
+    <input class="search" id="q-clients" type="search" placeholder="Search name, group, software, partner" value="${esc(ui.clientQ)}" data-act="q" data-key="clientQ">
+    <label class="check"><input type="checkbox" id="inactiveToggle" data-act="inactive" ${ui.showInactive?'checked':''}> Show inactive</label></div>
+  ${gl.length ? '' : '<div class="hint">No groups yet. Tick a few clients and put them in a group.</div>'}
+  ${body}${bar}${grpDatalist()}`;
+}
+
+// All tasks view
+function viewAll(){
+  let rows = [...tasks.entries()].filter(([,t]) => {
+    if (ui.allStatus === 'open' && !isOpen(t)) return false;
+    if (ui.allStatus === 'closed' && isOpen(t)) return false;
+    if (STATUSES.includes(ui.allStatus) && t.status !== ui.allStatus) return false;
+    if (ui.allWs && t.ws !== ui.allWs) return false;
+    if (!inGrp(t.clientId)) return false;
+    return matchQ(t, ui.allQ);
+  }).sort(byDue);
+  if (ui.allStatus === 'closed') rows.reverse();
+  return `<div class="today-head"><div><div class="eyebrow">All tasks</div><h1>${rows.length} task${rows.length===1?'':'s'}</h1><div class="sub">Every task from the last ten months plus anything still open.</div></div>
+    <button class="btn" data-new="task">+ One-off task</button></div>
+  <div class="filters">
+    <select class="search" style="max-width:200px" id="allStatus" data-act="allStatus" aria-label="Status filter">
+      ${[['open','Open'],['closed','Done & N/A'],['all','Everything'],...STATUSES.map(s=>[s,s])].map(([v,l]) => `<option value="${esc(v)}"${ui.allStatus===v?' selected':''}>${l}</option>`).join('')}</select>
+    <select class="search" style="max-width:200px" id="allWs" data-act="allWs" aria-label="Workstream filter"><option value="">All work</option>${Object.entries(WS).map(([k,v]) => `<option value="${k}"${ui.allWs===k?' selected':''}>${v}</option>`).join('')}</select>
+    ${grpFilter()}
+    ${selBtn()}
+    <input class="search" id="q-all" type="search" placeholder="Search" value="${esc(ui.allQ)}" data-act="q" data-key="allQ">
+  </div>
+  <div class="list">${rows.slice(0, ui['more-all'] ? 2000 : 150).map(([id,t]) => taskRow(id,t)).join('') || '<div class="empty">No tasks match these filters.</div>'}
+  ${rows.length > 150 && !ui['more-all'] ? `<button class="more" data-act="more" data-key="all">Show all ${rows.length}</button>` : ''}</div>`;
+}
+
+// Deadlines view
+function nextYearly(m, d, roll_=true){ const t = today(); let x = new Date(t.getFullYear(), m-1, d, 12); if (roll(x,roll_) < t) x = new Date(t.getFullYear()+1, m-1, d, 12); return roll(x, roll_); }
+function viewDeadlines(){
+  const t0 = today(), q = nextQtrBas();
+  const qc = (() => { const y = t0.getFullYear(); const c = [[y,2,28],[y,5,26],[y,8,25],[y,11,25],[y+1,2,28]].map(([yy,m,d]) => roll(new Date(yy,m-1,d,12),true)); return c.find(d => d >= t0); })();
+  const rows = [
+    ['BAS — monthly (GST)', 'Monthly', '21st of the following month', 'No concession', nextOn(21), 'GST turnover ≥ $20m, or elected monthly'],
+    ['IAS — monthly (PAYGW)', 'Monthly', '21st of the following month', 'Not applicable', nextOn(21), 'Medium withholders'],
+    ['BAS — quarterly', 'Quarterly', '28th after quarter end; Dec quarter 28 Feb', `Agent lodgment program: next ${fmtD(iso(qc))}`, q, 'GST turnover < $20m'],
+    ['PAYG instalment', 'Quarterly', 'Same as quarterly BAS', 'Same as quarterly BAS', q, 'Instalment payers'],
+    ['Super — Payday Super', 'Each payday', 'Must reach the fund within 7 days of payday (from 1 Jul 2026)', 'Not applicable', null, 'All employers'],
+    ['STP — pay event', 'Each pay run', 'On or before each payday', 'Not applicable', null, 'All employers'],
+    ['STP — EOFY finalisation', 'Yearly', '14 July (closely held payees 30 Sep)', 'Not applicable', nextYearly(7,14), 'All employers'],
+    ['Payroll tax — monthly return', 'Monthly', '7th of the following month', 'Not applicable', nextOn(7), 'Employers over the state threshold'],
+    ['Payroll tax — annual reconciliation', 'Yearly', '21 July (NSW, SA, ACT: 28 July)', 'Not applicable', nextYearly(7,21), 'Registered employers'],
+    ['TPAR', 'Yearly', '28 August', 'Not applicable', nextYearly(8,28), 'Building, cleaning, courier, IT, road freight, security'],
+    ['FBT return', 'Yearly', '21 May (FBT year ends 31 Mar)', 'Agent electronic lodgement 25 June', nextYearly(5,21), 'Employers providing fringe benefits'],
+    ['Income tax — self-lodgers', 'Yearly', '31 October', 'Agent clients generally 15 May', nextYearly(10,31), 'Individuals and sole traders'],
+    ['Income tax — agent lodgment program', 'Yearly', '15 May (most agent-lodged returns)', 'Earlier for large or prior-late lodgers', nextYearly(5,15), 'Clients on a registered agent program'],
+  ].sort((a,b) => (a[4]||new Date(8640e12)) - (b[4]||new Date(8640e12)));
+  const pt = [['NSW','$1,200,000','5.45%','Flat rate on the excess'],['VIC','$1,000,000','4.85% (regional 1.2125%)','Mental health levy 0.5% + COVID debt levies'],
+    ['QLD','$1,300,000','4.75% ≤ $6.5M · 4.95% above','Deduction reduces $1 per $7 above threshold'],['SA','$1,500,000','4.95% (shades in)','Rate shades in between $1.5M and $1.7M'],
+    ['WA','$1,000,000','5.5%','Threshold diminishes to $7.5M'],['TAS','$1,250,000','4% to $2M · 6.1% above','Two marginal bands'],
+    ['NT','$2,500,000','5.5% · 6.5% ≥ $100M','Deduction diminishes above $2.5M'],['ACT','$1,750,000','6.75% ≤ $20M · higher tiers above','December return due 14 January']];
+  return `<div class="today-head"><div><div class="eyebrow">Reference</div><h1>Statutory deadlines</h1><div class="sub">Next dates are worked out from today and move weekend dates to the next business day. Confirm against the ATO and the agent lodgment program before relying on them.</div></div></div>
+  <div class="tbl-wrap"><table class="dl"><thead><tr><th>Obligation</th><th>Next due</th><th>Rule</th><th>Agent concession</th><th>Applies to</th></tr></thead><tbody>
+  ${rows.map(r => { const n = r[4] ? dayDiff(r[4], t0) : null; return `<tr><td><b>${r[0]}</b><div class="t2">${r[1]}</div></td><td class="mono">${r[4] ? `${fmtD(iso(r[4]))} ${r[4].getFullYear()}<div class="t2 ${n<=7?'late-n':''}">${n===0?'today':`in ${n} days`}</div>` : '—'}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[5]}</td></tr>`; }).join('')}
+  </tbody></table></div>
+  <div class="section"><h2>Payroll tax by state, FY2026–27</h2><div class="sub">Monthly returns are due on the 7th of the following month in every state. Copied from your workbook; check each revenue office for changes.</div>
+  <div class="tbl-wrap"><table class="dl"><thead><tr><th>State</th><th>Annual threshold</th><th>Rate</th><th>Notes</th></tr></thead><tbody>
+  ${pt.map(r => `<tr><td><b>${r[0]}</b></td><td class="mono">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+// ---------- drawer ----------
+const dRoot = document.getElementById('drawerRoot');
+function drawerBusy(){ const a = document.activeElement; return a && dRoot.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); }
+function openDrawer(type, id, draft = {}){ drawer = {type, id, draft, confirmDel:false}; editNoteId = null; editNoteClear(); if (type === 'settings') rs = null; renderDrawer(); setTimeout(() => { const f = dRoot.querySelector('[data-autofocus]'); if (f) f.focus(); }, 30); }
+function closeDrawer(){ drawer = null; dRoot.innerHTML = ''; }
+// Side panel width: dragged from its left edge, remembered per browser.
+const clampDW = w => Math.round(Math.max(400, Math.min(w, innerWidth - 120, 1400)));
+function setDrawerW(w, save){ const d = dRoot.querySelector('.drawer'); if (!d) return; if (w == null){ d.style.width = ''; delete ui.drawerW; } else { w = clampDW(w); d.style.width = w + 'px'; ui.drawerW = w; } if (save) persistUi(); }
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.d-resize'); if (!h || e.button !== 0) return;
+  e.preventDefault(); h.setPointerCapture(e.pointerId); h.classList.add('on'); document.body.classList.add('resizing');
+  const move = ev => setDrawerW(innerWidth - ev.clientX, false);
+  const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); h.classList.remove('on'); document.body.classList.remove('resizing'); persistUi(); };
+  h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+});
+document.addEventListener('dblclick', e => { if (e.target.closest && e.target.closest('.d-resize')) setDrawerW(null, true); });
+document.addEventListener('keydown', e => { if (!(e.target.classList && e.target.classList.contains('d-resize'))) return;
+  const cur = dRoot.querySelector('.drawer')?.getBoundingClientRect().width || 520;
+  if (e.key === 'ArrowLeft'){ e.preventDefault(); setDrawerW(cur + 40, true); } else if (e.key === 'ArrowRight'){ e.preventDefault(); setDrawerW(cur - 40, true); } });
+function renderDrawer(){
+  if (!drawer){ dRoot.innerHTML = ''; return; }
+  const fn = {task:drawerTask, job:drawerJob, client:drawerClient, settings:drawerSettings, time:drawerTime}[drawer.type];
+  const html = fn();
+  if (html == null){ closeDrawer(); return; }
+  const scroll = dRoot.querySelector('.d-body')?.scrollTop || 0;
+  dRoot.innerHTML = `<div class="scrim" data-act="close"></div><aside class="drawer" role="dialog" aria-modal="true"${ui.drawerW ? ` style="width:${clampDW(ui.drawerW)}px"` : ''}><div class="d-resize" role="separator" aria-orientation="vertical" aria-label="Resize panel (drag, arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>${html}</aside>`;
+  const b = dRoot.querySelector('.d-body'); if (b) b.scrollTop = scroll;
+  // Live updates redraw the drawer, so put back anything typed but not yet saved.
+  if (drawer.dirty) for (const [k,v] of Object.entries(drawer.dirty)){
+    const el = dRoot.querySelector(`[name="${CSS.escape(k)}"]`) || document.getElementById(k); if (!el) continue;
+    if (el.type === 'checkbox') el.checked = v; else el.value = v; }
+}
+function markDirty(el){
+  if (!drawer || !dRoot.contains(el) || el.dataset.act || el.type === 'file') return;
+  const k = el.name || el.id; if (!k) return;
+  (drawer.dirty ||= {})[k] = el.type === 'checkbox' ? el.checked : el.value;
+}
+const clientOptions = (lid = 'clientList') => `<datalist id="${lid}">${[...clients.values()].filter(c => c.active !== false).map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>`;
+const wsOptions = sel => Object.entries(WS).map(([k,v]) => `<option value="${k}"${sel===k?' selected':''}>${v}</option>`).join('');
+const dis = () => readOnly ? ' disabled' : '';
+
+function drawerTask(){
+  const isNew = !drawer.id; const t = isNew ? {status:'Not started', ws:'other', owner:(settings.me||[])[0]||'', steps:[], ...drawer.draft} : tasks.get(drawer.id);
+  if (!t) return null;
+  const j = t.jobId ? jobs.get(t.jobId) : null; const db_ = dueBits(t);
+  return `<div class="d-head"><div class="grow"><div class="eyebrow">${isNew ? 'New one-off task' : (j ? 'Recurring · ' + esc(FREQ[j.freq]||'') : 'One-off task')}</div>
+      <h2>${isNew ? 'Add a task' : esc(t.title)}</h2>${isNew ? '' : `<div class="sub">${esc(nice(t.client)||'General')}${t.period?` · <span class="mono">${esc(t.period)}</span>`:''} · <span class="${db_.cls==='late'?'late-n':''}">${db_.small}</span></div>`}</div>
+      ${isNew || readOnly ? '' : `<button class="btn ghost small" data-act="dpin" aria-pressed="${!!t.focus}">${t.focus ? 'Unpin from focus' : 'Pin to focus'}</button>`}
+      <button class="btn ghost small" data-act="close" aria-label="Close">Close</button></div>
+  <form class="d-body" id="taskForm" autocomplete="off">
+    ${isNew ? '' : `<div class="field"><span class="lab">Status</span><div class="status-seg">${STATUSES.map(s => `<button type="button" class="s-${SC[s]}" data-act="dstatus" data-v="${s}" aria-pressed="${t.status===s}"${dis()}>${s}</button>`).join('')}</div></div>`}
+    ${(t.steps||[]).length ? `<div class="field"><span class="lab">Steps</span><div class="steps">${t.steps.map((s,i) => `<label class="step${s.d?' done':''}"><input type="checkbox" data-act="step" data-i="${i}" ${s.d?'checked':''}${dis()}><span>${esc(s.n)}</span></label>`).join('')}</div></div>` : ''}
+    ${isNew ? '' : reminders(t.clientId)}
+    ${isNew ? '' : timeField(drawer.id, t)}
+    <div class="field"><label for="f-title">Task</label><input id="f-title" name="title" value="${esc(t.title||'')}" required ${isNew?'data-autofocus':''}${dis()}></div>
+    <div class="two"><div class="field"><label for="f-client">Client</label><input id="f-client" name="client" list="clientList" value="${esc(t.client||'')}" placeholder="Leave blank for internal work"${dis()}>${clientOptions()}</div>
+      <div class="field"><label for="f-ws">Workstream</label><select id="f-ws" name="ws"${dis()}>${wsOptions(t.ws)}</select></div></div>
+    <div class="three"><div class="field"><label for="f-due">Due date</label><input id="f-due" name="due" type="date" value="${esc(t.due||'')}"${dis()}></div>
+      <div class="field"><label for="f-owner">Owner</label><input id="f-owner" name="owner" value="${esc(t.owner||'')}"${dis()}></div>
+      <div class="field"><label for="f-est">Est. minutes</label><input id="f-est" name="estMin" type="number" min="0" step="5" value="${esc(t.estMin||'')}"${dis()}></div></div>
+    ${isNew ? `<div class="field"><label for="f-steps">Steps (optional, one per line)</label><textarea id="f-steps" name="steps" style="min-height:70px"${dis()}></textarea></div>` : ''}
+    <label class="check"><input type="checkbox" id="f-prio" name="priority" ${t.priority?'checked':''}${dis()}> Flag as priority</label>
+    <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="What's outstanding, who you're waiting on, where the file is"${dis()}>${esc(t.notes||'')}</textarea>${t.clientId || isNew ? '<div class="hint">Task notes also show in the client\'s notes and history, even after the task is done.</div>' : ''}</div>
+    ${j ? `<div class="hint">Part of <b>${esc(j.title)}</b> for ${esc(nice(j.client))}: ${esc(describeRule(j))}. <button type="button" class="linkish" data-act="open-job" data-id="${esc(t.jobId)}">Edit recurring job</button></div>` : ''}
+    ${t.clientId && clients.has(t.clientId) ? `<div class="hint"><button type="button" class="linkish" data-act="open-client" data-id="${esc(t.clientId)}">Open ${esc(nice(clients.get(t.clientId).name))}</button></div>` : ''}
+  </form>
+  <div class="d-foot">${!isNew && !t.jobId && !readOnly ? (drawer.confirmDel ? `<span><button class="btn danger" data-act="del-task">Delete for good</button> <button class="btn ghost" data-act="cancel-del">Keep</button></span>` : `<button class="btn ghost danger" data-act="ask-del">Delete</button>`) : (t.jobId && !readOnly ? '<span class="hint">Not needed this period? Set it to Not applicable.</span>' : '<span></span>')}
+    ${readOnly ? '' : `<button class="btn primary" data-act="save-task">${isNew ? 'Add task' : 'Save changes'}</button>`}</div>`;
+}
+function reminders(cid){
+  if (!cid) return '';
+  const pins = notesOf(cid).filter(([,n]) => n.pinned); if (!pins.length) return '';
+  return `<div class="reminder"><b>Client reminders</b>${pins.map(([,n]) => `<div class="note-b">${esc(n.text)}</div>`).join('')}<button type="button" class="linkish" data-act="open-client" data-id="${esc(cid)}">See all notes</button></div>`;
+}
+function timeField(id, t){
+  const run = !!t.timerStart, open = isOpen(t);
+  const mine = entriesIn(timeCutoff, '9999').filter(x => x.taskId === id).sort(byStart).reverse();
+  const btns = readOnly ? '' : (open ? (run
+    ? `<button type="button" class="btn small" data-act="tpause" data-id="${esc(id)}">${IC.pause} Pause</button><button type="button" class="btn primary small" data-act="tfinish" data-id="${esc(id)}">Finish</button>`
+    : `<button type="button" class="btn primary small" data-act="tstart" data-id="${esc(id)}">${IC.play} ${t.timeSec ? 'Resume timer' : 'Start timer'}</button>`) : '')
+    + `<button type="button" class="btn small" data-act="time-add-task" data-id="${esc(id)}">+ Add time</button>`;
+  return `<div class="field"><span class="lab">Time spent</span>
+    <div class="timebox"><span class="tspent big${run?' run':''}" data-tick="${esc(id)}" data-fmt="clock">${fmtClock(elapsed(t))}</span>
+      <span class="hint">${t.estMin ? `of ${fmtDur(t.estMin*60)} estimated` : ''}</span><span class="grow"></span>${btns}</div>
+    ${mine.length ? `<div class="mini-list">${mine.map(x => `<div class="mi" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}"><span class="grow mono t2">${fmtD(x.date)}${x.start ? ` · ${hm(new Date(x.start))}${x.end ? `–${hm(new Date(x.end))}` : ''}` : ''}</span><span class="mono">${fmtDur(x.sec)}</span></div>`).join('')}</div>` : ''}
+    <div class="hint">${run ? 'Pause adds this session to your timesheet. Finish does that and marks the task Done.' : 'Each timer session goes on your timesheet, where you can edit it.'}</div></div>`;
+}
+function drawerJob(){
+  const isNew = !drawer.id;
+  const j = isNew ? {freq:'monthly', due:{day:21, offset:1}, ws:'bas', owner:(settings.me||[])[0]||'', steps:[], active:true, rollWeekend:true, ...drawer.draft} : jobs.get(drawer.id);
+  if (!j) return null;
+  const f = drawer.freqOverride || j.freq, r = drawer.freqOverride && drawer.freqOverride !== j.freq ? {} : (j.due || {});
+  const dayOpts = sel => ['last',...Array.from({length:31},(_,i)=>i+1)].map(d => `<option value="${d}"${String(sel)===String(d)?' selected':''}>${d==='last'?'Last day':d}</option>`).join('');
+  let rule = '';
+  if (f === 'monthly') rule = `<div class="two"><div class="field"><label for="j-day">Due day</label><select id="j-day" name="day"${dis()}>${dayOpts(r.day ?? 21)}</select></div>
+      <div class="field"><label for="j-off">Of which month</label><select id="j-off" name="offset"${dis()}><option value="1"${(r.offset??1)==1?' selected':''}>Month after the period (e.g. BAS)</option><option value="0"${r.offset===0?' selected':''}>Same month as the period</option></select></div></div>`;
+  if (f === 'quarterly') rule = `<div class="field"><label for="j-qrule">Due date rule</label><select id="j-qrule" name="qrule"${dis()}><option value="bas"${r.rule==='bas'||!r.day?' selected':''}>ATO quarterly BAS dates (28 Oct, 28 Feb, 28 Apr, 28 Jul)</option><option value="custom"${r.rule!=='bas'&&r.day?' selected':''}>A set day</option></select></div>
+      <div class="two"><div class="field"><label for="j-day">Due day (set day only)</label><select id="j-day" name="day"${dis()}>${dayOpts(r.day ?? 21)}</select></div>
+      <div class="field"><label for="j-off">Of which month</label><select id="j-off" name="offset"${dis()}><option value="1"${(r.offset??1)==1?' selected':''}>Month after quarter end</option><option value="0"${r.offset===0?' selected':''}>Quarter-end month</option></select></div></div>`;
+  if (f === 'weekly') rule = `<div class="field"><label for="j-wd">Due weekday</label><select id="j-wd" name="weekday"${dis()}>${[1,2,3,4,5].map(d => `<option value="${d}"${(+r.weekday||5)===d?' selected':''}>${WD[d]}</option>`).join('')}</select></div>`;
+  if (f === 'fortnightly') rule = `<div class="field"><label for="j-anchor">A due date in the cycle</label><input id="j-anchor" name="anchor" type="date" value="${esc(r.anchor || iso(today()))}"${dis()}></div>`;
+  if (f === 'yearly') rule = `<div class="two"><div class="field"><label for="j-ym">Month</label><select id="j-ym" name="month"${dis()}>${MON.map((m,i) => `<option value="${i+1}"${(+r.month||7)===i+1?' selected':''}>${m}</option>`).join('')}</select></div>
+      <div class="field"><label for="j-yd">Day</label><input id="j-yd" name="yday" type="number" min="1" max="31" value="${esc(r.day||28)}"${dis()}></div></div>`;
+  const inst = isNew ? [] : [...tasks.entries()].filter(([,t]) => t.jobId === drawer.id).sort((a,b) => (b[1].due||'').localeCompare(a[1].due||'')).slice(0,8);
+  return `<div class="d-head"><div class="grow"><div class="eyebrow">${isNew?'New recurring job':'Recurring job'}</div><h2>${isNew?'Set up a recurring job':esc(j.title)}</h2>${isNew?'<div class="sub">Each period becomes a task with its own due date and status.</div>':`<div class="sub">${esc(nice(j.client))} · ${esc(describeRule(j))}</div>`}</div>
+    <button class="btn ghost small" data-act="close">Close</button></div>
+  <form class="d-body" id="jobForm" autocomplete="off">
+    <div class="two"><div class="field"><label for="j-client">Client</label><input id="j-client" name="client" list="clientList" value="${esc(j.client||'')}" required ${isNew?'data-autofocus':''}${dis()}>${clientOptions()}</div>
+      <div class="field"><label for="j-title">Job</label><input id="j-title" name="title" value="${esc(j.title||'')}" placeholder="e.g. Monthly IAS + quarterly BAS" required${dis()}></div></div>
+    <div class="two"><div class="field"><label for="j-ws">Workstream</label><select id="j-ws" name="ws"${dis()}>${wsOptions(j.ws)}</select></div>
+      <div class="field"><label for="j-freq">Repeats</label><select id="j-freq" name="freq" data-act="freq"${dis()}>${Object.entries(FREQ).map(([k,v]) => `<option value="${k}"${f===k?' selected':''}>${v}</option>`).join('')}</select></div></div>
+    ${rule}
+    <label class="check"><input type="checkbox" name="rollWeekend" ${j.rollWeekend?'checked':''}${dis()}> Move weekend due dates to Monday</label>
+    <div class="three"><div class="field"><label for="j-owner">Owner</label><input id="j-owner" name="owner" value="${esc(j.owner||'')}"${dis()}></div>
+      <div class="field"><label for="j-rev">Reviewer</label><input id="j-rev" name="reviewer" value="${esc(j.reviewer||'')}"${dis()}></div>
+      <div class="field"><label for="j-est">Est. minutes</label><input id="j-est" name="estMin" type="number" min="0" step="5" value="${esc(j.estMin||'')}"${dis()}></div></div>
+    <div class="field"><label for="j-sw">Software</label><input id="j-sw" name="software" value="${esc(j.software||'')}"${dis()}></div>
+    <div class="field"><label for="j-steps">Steps, one per line</label><textarea id="j-steps" name="steps" style="min-height:80px" placeholder="Prepare&#10;Review&#10;Lodge"${dis()}>${esc((j.steps||[]).join('\n'))}</textarea></div>
+    <div class="field"><label for="j-notes">Standing notes</label><textarea id="j-notes" name="notes" placeholder="Where the data comes from, what to include each time"${dis()}>${esc(j.notes||'')}</textarea></div>
+    <div class="two"><label class="check"><input type="checkbox" name="priority" ${j.priority?'checked':''}${dis()}> Priority client</label>
+      <label class="check"><input type="checkbox" name="active" ${j.active!==false?'checked':''}${dis()}> Active (keeps creating periods)</label></div>
+    ${inst.length ? `<div class="field"><span class="lab">Recent periods</span><div class="mini-list">${inst.map(([id,t]) => `<div class="mi" data-act="open-task" data-id="${esc(id)}"><span class="grow"><span class="mono">${esc(t.period)}</span> · due ${fmtD(t.due)}</span><span class="badge s-${SC[t.status]}">${esc(t.status)}</span></div>`).join('')}</div></div>` : ''}
+    ${isNew ? '' : '<div class="hint">Saving updates the task name, owner and steps on periods that are still open. Closed periods keep their history.</div>'}
+  </form>
+  <div class="d-foot"><span></span>${readOnly?'':`<button class="btn primary" data-act="save-job">${isNew?'Create job':'Save job'}</button>`}</div>`;
+}
+function drawerClient(){
+  const isNew = !drawer.id; const c = isNew ? {active:true, team:{}, ...drawer.draft} : clients.get(drawer.id);
+  if (!c) return null; const tm = c.team || {};
+  const cj = isNew ? [] : [...jobs.entries()].filter(([,j]) => j.clientId === drawer.id);
+  const ct = isNew ? [] : [...tasks.entries()].filter(([,t]) => t.clientId === drawer.id && isOpen(t)).sort(byDue);
+  const nextOf = jid => { const ts = [...tasks.values()].filter(t => t.jobId === jid && isOpen(t)).sort((a,b) => (a.due||'').localeCompare(b.due||'')); return ts[0]; };
+  return `<div class="d-head"><div class="grow"><div class="eyebrow">${isNew?'New client':'Client'}</div><h2>${isNew?'Add a client':esc(nice(c.name))}</h2>${groupLabel(c)&&!isNew?`<div class="sub">${esc(nice(groupLabel(c)))}</div>`:''}</div><button class="btn ghost small" data-act="close">Close</button></div>
+  <form class="d-body" id="clientForm" autocomplete="off">
+    ${isNew ? '' : `<div class="field"><span class="lab">Recurring jobs</span>${cj.length ? `<div class="mini-list">${cj.map(([jid,j]) => { const n = nextOf(jid); return `<div class="mi" data-act="open-job" data-id="${esc(jid)}"><span class="grow"><b>${esc(j.title)}</b><div class="t2">${esc(describeRule(j))}${j.active===false?' · paused':''}</div></span>${n?`<span class="badge s-${SC[n.status]}">${fmtD(n.due)}</span>`:''}</div>`; }).join('')}</div>` : '<div class="hint">No recurring jobs yet.</div>'}
+      ${readOnly?'':`<div><button type="button" class="btn small" data-new="job" data-client="${esc(c.name)}">+ Recurring job</button> <button type="button" class="btn small" data-new="task" data-client="${esc(c.name)}">+ One-off task</button> <button type="button" class="btn small" data-new="time" data-client="${esc(c.name)}">+ Log time</button></div>`}
+      ${clientTime(drawer.id)}</div>
+      ${ct.length ? `<div class="field"><span class="lab">Open tasks</span><div class="mini-list">${ct.slice(0,12).map(([id,t]) => `<div class="mi" data-act="open-task" data-id="${esc(id)}"><span class="grow">${esc(t.title)} ${t.period?`<span class="mono t2">${esc(t.period)}</span>`:''}<div class="t2">due ${t.due?fmtD(t.due):'—'}</div></span><span class="badge s-${SC[t.status]}">${esc(t.status)}</span></div>`).join('')}</div></div>` : ''}
+      ${notesField(drawer.id)}`}
+    <div class="field"><label for="c-name">Client name</label><input id="c-name" name="name" value="${esc(c.name||'')}" required ${isNew?'data-autofocus':''}${dis()}></div>
+    <div class="two"><div class="field"><label for="c-group">Group / family</label><input id="c-group" name="group" list="grpList" value="${esc(c.group||'')}" placeholder="e.g. Smith family group"${dis()}>${grpDatalist()}</div>
+      <div class="field"><label for="c-sw">Software</label><input id="c-sw" name="software" value="${esc(c.software||'')}" placeholder="Xero, MYOB, APS, XPM…"${dis()}></div></div>
+    <div class="two"><div class="field"><label for="c-partner">Partner</label><input id="c-partner" name="partner" value="${esc(c.partner||'')}"${dis()}></div>
+      <div class="field"><label for="c-mgr">Manager</label><input id="c-mgr" name="manager" value="${esc(c.manager||'')}"${dis()}></div></div>
+    <div class="three"><div class="field"><label for="c-p">Processor</label><input id="c-p" name="processor" value="${esc(tm.processor||'')}"${dis()}></div>
+      <div class="field"><label for="c-s">Senior / AM</label><input id="c-s" name="senior" value="${esc(tm.senior||'')}"${dis()}></div>
+      <div class="field"><label for="c-m">Manager / Partner</label><input id="c-m" name="mgrInit" value="${esc(tm.manager||'')}"${dis()}></div></div>
+    <div class="field"><label for="c-services">Services</label><input id="c-services" name="services" value="${esc(c.services||'')}"${dis()}></div>
+    <div class="three"><div class="field"><label for="c-384">Form 384</label><input id="c-384" name="form384" value="${esc(c.form384||'')}"${dis()}></div>
+      <div class="field"><label for="c-pn">Process notes</label><input id="c-pn" name="processNotes" value="${esc(c.processNotes||'')}"${dis()}></div>
+      <div class="field"><label for="c-folder">Folder set up</label><input id="c-folder" name="folder" value="${esc(c.folder||'')}"${dis()}></div></div>
+    <div class="field"><label for="c-notes">Notes</label><textarea id="c-notes" name="notes"${dis()}>${esc(c.notes||'')}</textarea></div>
+    <div class="two"><label class="check"><input type="checkbox" name="payrollOnly" ${c.payrollOnly?'checked':''}${dis()}> Payroll only</label>
+      <label class="check"><input type="checkbox" name="active" ${c.active!==false?'checked':''}${dis()}> Active client</label></div>
+  </form>
+  <div class="d-foot"><span></span>${readOnly?'':`<button class="btn primary" data-act="save-client">${isNew?'Add client':'Save client'}</button>`}</div>`;
+}
+function clientTime(cid){
+  const t0 = today(), m0 = iso(new Date(t0.getFullYear(), t0.getMonth(), 1, 12)), p0 = iso(new Date(t0.getFullYear(), t0.getMonth()-1, 1, 12)), p1 = iso(new Date(t0.getFullYear(), t0.getMonth(), 0, 12));
+  const mine = x => x.clientId === cid;
+  const cur = sumSec(entriesIn(m0, iso(t0)).filter(mine)), prev = sumSec(entriesIn(p0, p1).filter(mine));
+  return cur || prev ? `<div class="hint">Time logged: <b>${fmtHrs(cur)}</b> in ${MON[t0.getMonth()]} · ${fmtHrs(prev)} in ${MON[(t0.getMonth()+11)%12]}</div>` : '';
+}
+// A client's history mixes notes logged on the client with the notes written on its tasks.
+// Task notes stay on the task, so they show here whatever the task's status and change when the task is edited.
+const taskNoteDate = t => t.notesAt || t.doneAt || t.updated || t.created || (t.due ? t.due + 'T00:00:00' : '');
+function historyOf(cid){
+  const out = notesOf(cid).map(([nid, n]) => ({type: 'note', id: nid, n, pin: !!n.pinned, key: (n.at || '') + 'T' + (n.created || '')}));
+  for (const [tid, t] of tasks) if (t.clientId === cid && String(t.notes || '').trim()) { const d = taskNoteDate(t); out.push({type: 'task', id: tid, t, pin: false, key: d ? iso(new Date(d)) + 'T' + d : ''}); }
+  // Pinned notes are reminders, so they sit at the top.
+  return out.sort((a,b) => (b.pin - a.pin) || b.key.localeCompare(a.key));
+}
+let editNoteId = null; const neDraft = {};
+const neEl = id => (drawer && dRoot.querySelector('#' + id)) || document.getElementById(id);
+function noteRowHtml(nid, n){
+  if (editNoteId === nid) return `<div class="note editing"><div class="note-row"><select id="ne-kind" aria-label="Type of entry">${NOTE_KINDS.map(k => `<option${k === (neDraft['ne-kind'] ?? n.kind) ? ' selected' : ''}>${k}</option>`).join('')}</select><input id="ne-at" type="date" value="${esc(neDraft['ne-at'] ?? (n.at || iso(today())))}" aria-label="Date"></div>
+      <textarea id="ne-text" aria-label="Note">${esc(neDraft['ne-text'] ?? n.text)}</textarea>
+      <div class="bk-row"><button type="button" class="btn primary small" data-act="note-save" data-id="${esc(nid)}">Save note</button><button type="button" class="btn ghost small" data-act="note-cancel">Cancel</button></div></div>`;
+  return `<div class="note${n.kind === 'Info request' && !n.open ? ' resolved' : ''}${n.pinned ? ' pinned' : ''}"><div class="note-h">${n.pinned ? '<span class="pin-tag">Pinned</span>' : ''}<span class="badge k-${slug(n.kind)}">${esc(n.kind)}</span><span class="mono t2">${fmtD(n.at)}${n.by ? ` · ${esc(n.by)}` : ''}${n.edited ? ' · edited' : ''}</span><span class="grow"></span>
+    ${n.kind === 'Info request' ? `<label class="check"><input type="checkbox" data-act="note-recv" data-id="${esc(nid)}" ${n.open ? '' : 'checked'}${dis()}> Received${!n.open && n.receivedAt ? ` ${fmtD(iso(new Date(n.receivedAt)))}` : ''}</label>` : ''}
+    ${readOnly ? '' : `<button type="button" class="linkish" data-act="note-pin" data-id="${esc(nid)}">${n.pinned ? 'Unpin' : 'Pin'}</button><button type="button" class="linkish" data-act="note-edit" data-id="${esc(nid)}">Edit</button><button type="button" class="linkish" data-act="note-del" data-id="${esc(nid)}">Delete</button>`}</div><div class="note-b">${esc(n.text)}</div></div>`;
+}
+function taskNoteRowHtml(tid, t){ const d = taskNoteDate(t);
+  return `<div class="note tnote"><div class="note-h"><span class="badge k-task-note">Task note</span><span class="mono t2">${d ? fmtD(iso(new Date(d))) : ''}</span><span class="badge s-${SC[t.status]||'ns'}">${esc(t.status)}</span><span class="grow"></span>
+    <button type="button" class="linkish" data-act="open-task" data-id="${esc(tid)}">${readOnly ? 'Open task' : 'Edit in task'}</button></div>
+    <div class="t2 tn-title">${esc(t.title)}${t.period ? ` · ${esc(t.period)}` : ''}</div><div class="note-b">${esc(t.notes)}</div></div>`; }
+const histRow = h => h.type === 'note' ? noteRowHtml(h.id, h.n) : taskNoteRowHtml(h.id, h.t);
+function notesField(cid){
+  const list = historyOf(cid), shown = drawer.allNotes ? list : list.slice(0, 8), out = openReqs(cid);
+  const add = readOnly ? '' : `<div class="note-add"><div class="note-row"><select id="n-kind" aria-label="Type of entry">${NOTE_KINDS.map(k => `<option>${k}</option>`).join('')}</select><input id="n-at" type="date" value="${iso(today())}" aria-label="Date"></div>
+    <textarea id="n-text" placeholder="e.g. Called the client about the missing September bank statements" aria-label="What happened"></textarea>
+    <div><button type="button" class="btn primary small" data-act="note-add">Add to history</button></div></div>`;
+  return `<div class="field"><span class="lab">Notes and history${out ? ` · <span class="late-n">${out} info request${out===1?'':'s'} outstanding</span>` : ''}</span>${add}
+    ${list.length ? `<div class="mini-list notes">${shown.map(histRow).join('')}</div>${list.length > shown.length ? `<button type="button" class="linkish" data-act="notes-all">Show all ${list.length}</button>` : ''}` : '<div class="hint">Nothing logged yet. Calls, emails, info requests and notes written on this client\'s tasks appear here, newest first.</div>'}</div>`;
+}
+function editNoteClear(){ for (const k of Object.keys(neDraft)) delete neDraft[k]; if (drawer && drawer.dirty) for (const k of ['ne-kind','ne-at','ne-text']) delete drawer.dirty[k]; }
+function startNoteEdit(id){ editNoteId = id; editNoteClear(); render(true); if (drawer) renderDrawer(); setTimeout(() => neEl('ne-text')?.focus(), 30); }
+function cancelNoteEdit(){ editNoteId = null; editNoteClear(); render(true); if (drawer) renderDrawer(); }
+async function saveNoteEdit(nid){
+  const n = notes.get(nid); if (!n){ cancelNoteEdit(); return; }
+  const text = (neEl('ne-text')?.value || '').trim(); if (!text){ toast('A note can’t be empty. Use Delete to remove it.'); return; }
+  const kind = neEl('ne-kind').value, at = neEl('ne-at').value || n.at;
+  const patch = {kind, at, text, edited: nowIso()};
+  if (kind !== n.kind) Object.assign(patch, kind === 'Info request' ? {open: true, receivedAt: ''} : {open: false});
+  const prev = {kind: n.kind, at: n.at, text: n.text, edited: n.edited || '', open: !!n.open, receivedAt: n.receivedAt || ''};
+  notes.set(nid, {...n, ...patch}); editNoteId = null; editNoteClear(); render(true); if (drawer) renderDrawer();
+  await upd('notes', nid, patch).catch(()=>{});
+  toast('Note updated', () => upd('notes', nid, prev).catch(()=>{}));
+}
+function pinNote(nid){ const n = notes.get(nid); if (!n) return; notes.set(nid, {...n, pinned: !n.pinned}); render(true); if (drawer) renderDrawer();
+  upd('notes', nid, {pinned: !n.pinned}).catch(()=>{}); toast(n.pinned ? 'Unpinned' : 'Pinned. It shows at the top of this client’s notes and on their tasks.'); }
+
+// ---------- notes view: every client's notes and task notes in one place ----------
+function viewNotes(){
+  const q = (ui.nQ || '').toLowerCase(), f = ui.nFilter || 'all';
+  const per = new Map(); let total = 0, reqs = 0;
+  const keep = (cid, h) => { if (!inGrp(cid)) return;
+    if (f === 'client' && h.type !== 'note') return; if (f === 'task' && h.type !== 'task') return;
+    if (f === 'reqs' && !(h.type === 'note' && h.n.kind === 'Info request' && h.n.open)) return; if (f === 'pinned' && !h.pin) return;
+    if (q){ const c = clients.get(cid) || {}; const hay = [c.name, nice(c.name), groupOfClient(c), h.type === 'note' ? h.n.text + ' ' + h.n.kind : h.t.notes + ' ' + h.t.title + ' ' + (h.t.period || '')].join(' ').toLowerCase(); if (!hay.includes(q)) return; }
+    if (!per.has(cid)) per.set(cid, []); per.get(cid).push(h); total++; if (h.type === 'note' && h.n.kind === 'Info request' && h.n.open) reqs++; };
+  const cids = new Set([...[...notes.values()].map(n => n.clientId), ...[...tasks.values()].filter(t => String(t.notes || '').trim()).map(t => t.clientId)].filter(Boolean));
+  for (const cid of cids) for (const h of historyOf(cid)) keep(cid, h);
+  const latest = cid => per.get(cid).reduce((m, h) => h.key > m ? h.key : m, '');
+  const order = [...per.keys()].sort((a,b) => latest(b).localeCompare(latest(a)));
+  const chip = (k, l) => `<button class="chip" data-act="nfilter" data-v="${k}" aria-pressed="${f===k}">${l}</button>`;
+  const add = readOnly ? '' : `<div class="ts-start note-quick">
+    <input id="nv-client" data-ui="nvClient" list="clientListNv" value="${esc(ui.nvClient||'')}" placeholder="Client" aria-label="Client">${clientOptions('clientListNv')}
+    <select id="nv-kind" data-ui="nvKind" aria-label="Type of note">${NOTE_KINDS.map(k => `<option${(ui.nvKind||'Note')===k?' selected':''}>${k}</option>`).join('')}</select>
+    <input id="nv-text" data-ui="nvText" value="${esc(ui.nvText||'')}" placeholder="Note, reminder for next time, or info you're waiting on" aria-label="Note">
+    <label class="check"><input type="checkbox" id="nv-pin" data-ui="nvPin" ${ui.nvPin?'checked':''}> Pin</label>
+    <button class="btn primary" data-act="nv-add">Add note</button></div>`;
+  const card = cid => { const c = clients.get(cid) || {name: '(deleted client)'}; const l = per.get(cid), open = ui['nopen-' + cid], shown = open ? l : l.slice(0, 4), r = openReqs(cid), g = groupLabel(c);
+    return `<section class="ncard"><div class="ncard-h"><button class="linkish nc-name" data-act="open-client" data-id="${esc(cid)}">${esc(nice(c.name))}</button>${g ? `<span class="t2">${esc(g)}</span>` : ''}${r ? `<span class="badge s-wc">${r} info request${r===1?'':'s'} out</span>` : ''}<span class="grow"></span><span class="count">${l.length}</span></div>
+      <div class="mini-list notes">${shown.map(histRow).join('')}</div>${l.length > shown.length ? `<button class="more" data-act="nmore" data-id="${esc(cid)}">Show ${l.length - shown.length} more</button>` : ''}</section>`; };
+  return `<div class="today-head"><div><div class="eyebrow">Client notes</div><h1>Notes</h1><div class="sub">${total} note${total===1?'':'s'} across ${order.length} client${order.length===1?'':'s'}${reqs ? ` · <span class="late-n">${reqs} info request${reqs===1?'':'s'} outstanding</span>` : ''}</div></div></div>
+  ${add}
+  <div class="filters">${chip('all','All')}${chip('pinned','Pinned')}${chip('client','Client notes')}${chip('task','Task notes')}${chip('reqs','Info requests outstanding')}${grpFilter()}
+    <input class="search" id="q-notes" type="search" placeholder="Search client or note" value="${esc(ui.nQ||'')}" data-act="q" data-key="nQ"></div>
+  ${order.length ? `<div class="ncards">${order.map(card).join('')}</div>` : `<div class="list"><div class="empty">${total || q || f !== 'all' || ui.grp ? 'No notes match.' : 'No notes yet. Add one above, or write notes on a task and they appear here under the client.'}</div></div>`}`;
+}
+async function addNoteFromView(){
+  const text = (ui.nvText || '').trim(), name = (ui.nvClient || '').trim();
+  if (!name){ toast('Choose the client first.'); document.getElementById('nv-client')?.focus(); return; }
+  const {clientId, client} = clientByName(name); if (!clientId){ toast('That client isn’t on the board. Pick one from the list.'); return; }
+  if (!text){ toast('Write the note first.'); document.getElementById('nv-text')?.focus(); return; }
+  const kind = ui.nvKind || 'Note';
+  await put('notes', rid('n'), {clientId, client, kind, text, at: iso(today()), by: meName(), open: kind === 'Info request', pinned: !!ui.nvPin, created: nowIso()}).catch(()=>{});
+  ui.nvText = ''; ui.nvPin = false; persistUi(); render(true); toast(`Note added for ${nice(client)}`);
+}
+function drawerSettings(){
+  return `<div class="d-head"><div class="grow"><div class="eyebrow">Settings</div><h2>How the board works for you</h2></div><button class="btn ghost small" data-act="close">Close</button></div>
+  <form class="d-body" id="setForm">
+    <div class="field"><label for="s-me">Names and initials that mean you</label><input id="s-me" name="me" value="${esc((settings.me||[]).join(', '))}"${dis()}><div class="hint">“Mine” shows tasks owned by any of these, plus tasks with no owner. Separate with commas.</div></div>
+    <div class="two"><div class="field"><label for="s-soon">“Due soon” window (days)</label><input id="s-soon" name="dueSoonDays" type="number" min="1" max="30" value="${esc(settings.dueSoonDays||7)}"${dis()}></div>
+      <div class="field"><label for="s-hz">Create recurring tasks this many days ahead</label><input id="s-hz" name="horizonDays" type="number" min="14" max="120" value="${esc(settings.horizonDays||45)}"${dis()}></div></div>
+    ${HAS_DRIVE ? `<label class="check"><input type="checkbox" name="autoBackup" ${settings.autoBackup !== false ? 'checked' : ''}${dis()}> Back up to Google Drive automatically ${AUTO_DAYS === 1 ? 'every day' : 'every 7 days'}</label>
+    <div class="hint" style="margin-top:-10px">Runs when you open the board and the last backup is ${AUTO_DAYS === 1 ? 'a day' : '7 or more days'} old.${autoWaiting && settings.autoBackup !== false ? ' <span class="err-t">It’s waiting for permission to use Google Drive: press “Back up to Google Drive” once and allow it.</span>' : ''}</div>` : ''}
+    <div class="hint">${jobs.size} recurring jobs · ${clients.size} clients · ${tasks.size} tasks · ${notes.size} notes loaded.</div>
+  </form>
+  <div class="d-body backup">
+    <div class="field"><span class="lab">Backup</span>
+      <div class="hint">Saves every client, recurring job, task, note, timesheet entry and setting as one file${settings.backupFolderUrl ? ` in your <a href="${esc(settings.backupFolderUrl)}" target="_blank" rel="noopener">Work Board backups</a> folder` : ''}. ${settings.lastBackupAt ? `Last backup ${esc(fmtLong(new Date(settings.lastBackupAt)))}, ${esc(new Date(settings.lastBackupAt).toLocaleTimeString("en-AU",{hour:"numeric",minute:"2-digit"}))}${settings.lastBackupUrl ? ` · <a href="${esc(settings.lastBackupUrl)}" target="_blank" rel="noopener">open in Drive</a>` : ''}.` : 'No backup yet.'}</div>
+      <div class="bk-row">${HAS_DRIVE ? '<button class="btn primary small" data-act="backup-drive" id="bkDrive">Back up to Google Drive</button>' : ''}<button class="btn small${HAS_DRIVE ? '' : ' primary'}" data-act="backup-dl" id="bkDl">Download a copy</button></div>
+      <div class="hint" id="bkMsg" role="status"></div>
+    </div>
+    ${readOnly ? '' : `<div class="field"><span class="lab">Restore</span>
+      <div class="hint">Puts the whole board back to how it was in a backup.</div>
+      <div class="bk-row">${HAS_DRIVE ? '<button class="btn small" data-act="rs-drive">Choose a Drive backup</button>' : ''}<label class="btn small" for="rsFile" tabindex="0">Choose a file…</label><input type="file" id="rsFile" accept=".json,application/json" hidden></div>
+      ${restoreArea()}</div>`}
+  </div>
+  <div class="d-foot"><span></span>${readOnly?'':'<button class="btn primary" data-act="save-settings">Save settings</button>'}</div>`;
+}
+
+// ---------- saving from drawers ----------
+async function resolveClient(name){
+  name = (name || '').trim(); if (!name) return {clientId:'', client:''};
+  for (const [id,c] of clients) if (c.name.trim().toLowerCase() === name.toLowerCase() || nice(c.name).toLowerCase() === name.toLowerCase()) return {clientId:id, client:c.name};
+  let id = slug(name); if (clients.has(id)) id = rid('c');
+  await put('clients', id, {name, group:'', partner:'', manager:'', team:{processor:'',senior:'',manager:''}, software:'', services:'', payrollOnly:false, form384:'', processNotes:'', folder:'', notes:'', active:true, created:nowIso()});
+  return {clientId:id, client:name};
+}
+const formData = id => { const f = document.getElementById(id); return f ? new FormData(f) : null; };
+const val = (fd, k) => String(fd.get(k) ?? '').trim();
+
+async function saveTask(){
+  const fd = formData('taskForm'); if (!fd) return;
+  const title = val(fd,'title'); if (!title){ toast('Give the task a name first.'); return; }
+  const {clientId, client} = await resolveClient(val(fd,'client'));
+  const patch = {title, clientId, client, ws: val(fd,'ws'), due: val(fd,'due'), owner: val(fd,'owner'), estMin: +val(fd,'estMin') || 0, priority: fd.get('priority') === 'on', notes: String(fd.get('notes')||'')};
+  if (!drawer.id){
+    const id = rid('t');
+    const steps = String(fd.get('steps')||'').split('\n').map(s => s.trim()).filter(Boolean).map(n => ({n, d:false}));
+    await put('tasks', id, {...patch, jobId:'', periodKey:'', period:'', status:'Not started', steps, doneAt:'', created:nowIso()}).catch(()=>{});
+    toast(`Added ${title}`); closeDrawer();
+  } else {
+    const old = tasks.get(drawer.id) || {};
+    if (String(old.notes || '') !== patch.notes) patch.notesAt = nowIso();
+    await upd('tasks', drawer.id, patch).catch(()=>{}); toast('Saved'); closeDrawer();
+  }
+}
+async function saveJob(){
+  const fd = formData('jobForm'); if (!fd) return;
+  const title = val(fd,'title'), cname = val(fd,'client');
+  if (!title || !cname){ toast('A recurring job needs a client and a name.'); return; }
+  const freq = val(fd,'freq'); let due = {};
+  const day = val(fd,'day') === 'last' ? 'last' : +val(fd,'day');
+  if (freq === 'monthly') due = {day, offset: +val(fd,'offset')};
+  if (freq === 'quarterly') due = val(fd,'qrule') === 'custom' ? {day, offset:+val(fd,'offset')} : {rule:'bas'};
+  if (freq === 'weekly') due = {weekday: +val(fd,'weekday')};
+  if (freq === 'fortnightly') due = {anchor: val(fd,'anchor') || iso(today())};
+  if (freq === 'yearly') due = {month: +val(fd,'month'), day: +val(fd,'yday') || 1};
+  const {clientId, client} = await resolveClient(cname);
+  const data = {title, clientId, client, ws: val(fd,'ws'), freq, due, owner: val(fd,'owner'), reviewer: val(fd,'reviewer'), estMin: +val(fd,'estMin') || 0,
+    software: val(fd,'software'), steps: String(fd.get('steps')||'').split('\n').map(s => s.trim()).filter(Boolean), notes: String(fd.get('notes')||''),
+    priority: fd.get('priority') === 'on', active: fd.get('active') === 'on', rollWeekend: fd.get('rollWeekend') === 'on'};
+  if (!drawer.id){
+    const id = slug(`${client}-${title}`).slice(0,70) + '-' + Math.random().toString(36).slice(2,6);
+    try { await put('jobs', id, {...data, from: iso(today()), created: nowIso()}); } catch { return; }
+    jobs.set(id, {...data, from: iso(today())});
+    toast(`Created ${title}. This period's task is on your board.`); closeDrawer(); ensureInstances();
+  } else {
+    const jid = drawer.id, old = jobs.get(jid) || {};
+    const ruleChanged = JSON.stringify(old.due) !== JSON.stringify(due) || old.freq !== freq;
+    const patch = {...data}; if (ruleChanged) patch.from = iso(today());
+    // Turning a paused job back on starts from today rather than back-filling missed periods.
+    if (old.active === false && data.active) patch.from = iso(today());
+    // A full write: update() merges nested objects, which would mix the old and new due rules.
+    const nj = {...old, ...patch};
+    try { await put('jobs', jid, nj); } catch { return; }
+    jobs.set(jid, nj);
+    const sched = ruleChanged ? new Map(periodsFor(nj, addDays(today(), -400), addDays(today(), 400)).map(p => [p.key, iso(p.due)])) : null;
+    for (const [id,t] of [...tasks]){ if (t.jobId !== jid || !isOpen(t)) continue;
+      const tp = {title, client, clientId, ws: data.ws, owner: data.owner, priority: data.priority};
+      if (sched){
+        if (sched.has(t.periodKey)) tp.due = sched.get(t.periodKey);
+        else if (t.status === 'Not started' && t.due >= iso(today())){ await del('tasks', id).catch(()=>{}); continue; }
+      }
+      if (JSON.stringify(old.steps||[]) !== JSON.stringify(data.steps)) tp.steps = data.steps.map(n => ({n, d: !!(t.steps||[]).find(s => s.n === n && s.d)}));
+      await upd('tasks', id, tp).catch(()=>{});
+    }
+    toast('Recurring job saved'); closeDrawer(); ensureInstances();
+  }
+}
+async function saveClient(){
+  const fd = formData('clientForm'); if (!fd) return;
+  const name = val(fd,'name'); if (!name){ toast('Give the client a name.'); return; }
+  const data = {name, group: val(fd,'group'), software: val(fd,'software'), partner: val(fd,'partner'), manager: val(fd,'manager'),
+    team:{processor: val(fd,'processor'), senior: val(fd,'senior'), manager: val(fd,'mgrInit')}, services: val(fd,'services'), form384: val(fd,'form384'),
+    processNotes: val(fd,'processNotes'), folder: val(fd,'folder'), notes: String(fd.get('notes')||''), payrollOnly: fd.get('payrollOnly') === 'on', active: fd.get('active') === 'on'};
+  if (!drawer.id){ let id = slug(name); if (clients.has(id)) id = rid('c'); await put('clients', id, {...data, created: nowIso()}).catch(()=>{}); toast(`Added ${name}`); closeDrawer(); }
+  else {
+    const id = drawer.id, old = clients.get(id) || {};
+    await upd('clients', id, data).catch(()=>{});
+    if (old.name !== name){ for (const [jid,j] of [...jobs]) if (j.clientId === id) await upd('jobs', jid, {client:name}).catch(()=>{});
+      for (const [tid,t] of [...tasks]) if (t.clientId === id && isOpen(t)) await upd('tasks', tid, {client:name}).catch(()=>{}); }
+    toast('Client saved'); closeDrawer();
+  }
+}
+async function saveSettings(){
+  const fd = formData('setForm'); if (!fd) return;
+  const s = {autoBackup: fd.get('autoBackup') === 'on', me: val(fd,'me').split(',').map(x => x.trim()).filter(Boolean), dueSoonDays: Math.max(1, +val(fd,'dueSoonDays') || 7), horizonDays: Math.min(120, Math.max(14, +val(fd,'horizonDays') || 45))};
+  await put('settings', 'app', {...settings, ...s}).catch(()=>{}); settings = {...settings, ...s}; toast('Settings saved'); closeDrawer(); render(); ensureInstances();
+}
+
+async function setGroup(ids, group){
+  if (!ids.length) return;
+  const prev = ids.map(id => [id, (clients.get(id)||{}).group || '']);
+  // Match an existing group's spelling so "smith family group" joins "Smith family group".
+  const hit = group && groupList().find(g => g.name.toLowerCase() === group.toLowerCase()); if (hit) group = hit.name;
+  for (const id of ids) await upd('clients', id, {group}).catch(()=>{});
+  picked.clear(); render();
+  toast(group ? `${ids.length} client${ids.length===1?'':'s'} put in ${group}` : `${ids.length} client${ids.length===1?'':'s'} removed from their group`,
+    () => { for (const [id,g] of prev) upd('clients', id, {group:g}).catch(()=>{}); });
+}
+
+function togglePick(id){ tPicked.has(id) ? tPicked.delete(id) : tPicked.add(id); render(true); }
+
+// ---------- backup ----------
+const DRIVE = 'Google Drive';
+// Outside claude.ai, Drive works once a Google client ID is set in js/config.js; backups run daily there.
+const HAS_DRIVE = !window.WB_STANDALONE || !!window.WB_HAS_DRIVE;
+const AUTO_DAYS = window.WB_STANDALONE ? 1 : 7, AUTO_WORD = AUTO_DAYS === 1 ? 'daily' : 'weekly';
+async function backupData(){
+  const out = {app:'Accounting Work Board', format:1, exportedAt: nowIso(), clients:{}, jobs:{}, tasks:{}, settings:{}};
+  const grab = async (col, map) => { try { const q = await db.collection(col).get(); q.docs.forEach(d => out[col][d.id] = d.data()); } catch { for (const [k,v] of map) out[col][k] = v; } };
+  out.notes = {}; out.time = {};
+  await Promise.all([grab('clients', clients), grab('jobs', jobs), grab('tasks', tasks), grab('notes', notes), grab('time', timeDays)]);
+  try { const d = await db.doc('settings/app').get(); out.settings = d.exists ? d.data() : {...settings}; } catch { out.settings = {...settings}; }
+  out.counts = {clients: Object.keys(out.clients).length, jobs: Object.keys(out.jobs).length, tasks: Object.keys(out.tasks).length, notes: Object.keys(out.notes).length, timeEntries: Object.values(out.time).reduce((n,d) => n + ((d && d.entries) || []).length, 0)};
+  return out;
+}
+const stamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}`; };
+function bkMsg(text, err){ const el = document.getElementById('bkMsg'); if (el){ el.textContent = text; el.classList.toggle('err', !!err); } }
+function bkBusy(on){ for (const id of ['bkDrive','bkDl']){ const b = document.getElementById(id); if (b) b.disabled = on; } }
+function driveErr(e){
+  const c = e && e.code;
+  if (window.WB_STANDALONE){
+    if (c === 'not_granted') return 'Google sign-in didn’t finish. If no Google window appeared, allow pop-ups for this site and try again.';
+    if (c === 'server_unavailable' || c === 'upstream_error') return 'Google Drive didn’t answer. Check your connection and try again.';
+    if (c === 'tool_error') return `Google Drive said: ${(e && e.message) || 'something went wrong'}.`;
+  }
+  return c === 'server_not_connected' || c === 'selection_required' ? 'Add Google Drive in claude.ai Settings → Connectors, then try again.'
+    : c === 'needs_reauth' ? 'Reconnect Google Drive in claude.ai Settings → Connectors, then try again.'
+    : c === 'not_in_manifest' ? 'Google Drive is turned off for this board. Allow it from the board’s Permissions menu, then try again.'
+    : c === 'blocked_by_policy' || c === 'approval_required' ? 'Your organisation doesn’t allow this board to use Google Drive.'
+    : c === 'not_granted' || c === 'capability_disabled' || c === 'capability_removed' ? 'Google Drive can’t be reached from here.'
+    : c === 'server_unavailable' || c === 'upstream_error' ? 'Google Drive didn’t answer. Try again in a moment.'
+    : `Google Drive said: ${(e && e.message) || 'something went wrong'}.`;
+}
+async function driveCall(tool, input){
+  const mcp = await window.claude.use('mcp'); if (!mcp) throw {code:'not_granted'};
+  const r = await mcp.callTool(DRIVE, tool, input);
+  return r && r.payload && typeof r.payload === 'object' ? r.payload : {};
+}
+// Backups go in a "Work Board backups" folder; its id is kept in settings once found or made.
+async function backupFolder(){
+  if (settings.backupFolderId) return settings.backupFolderId;
+  let id = '';
+  try { const r = await driveCall('search_files', {query: "title = 'Work Board backups' and mimeType = 'application/vnd.google-apps.folder'", excludeContentSnippets: true, pageSize: 5}); id = ((r.files || [])[0] || {}).id || ''; } catch {}
+  if (!id){ const f = await driveCall('create_file', {title: 'Work Board backups', contentMimeType: 'application/vnd.google-apps.folder'}); id = f.id || ''; }
+  if (id){ const patch = {backupFolderId: id, backupFolderUrl: `https://drive.google.com/drive/folders/${id}`}; settings = {...settings, ...patch}; upd('settings', 'app', patch).catch(()=>{}); }
+  return id;
+}
+// Returns true when the file was saved. opts.auto: the weekly run; opts.prefix: a different file name.
+async function backupToDrive(opts = {}){
+  bkBusy(true); if (!opts.auto) bkMsg('Saving to Google Drive…');
+  try {
+    const mcp = await window.claude.use('mcp');
+    if (!mcp) throw {code:'not_granted'};
+    const data = await backupData(), title = `${opts.prefix || 'Work Board backup'} ${stamp()}.json`, json = JSON.stringify(data);
+    const input = {title, contentMimeType: 'application/json', disableConversionToGoogleType: true};
+    // A tool call carries at most 1 MiB, so a large board travels as a staged file instead.
+    if (json.length < 900000) input.textContent = json;
+    else {
+      let fileArgs = false; try { fileArgs = !!(await mcp.listTools()).fileArgs; } catch {}
+      if (!fileArgs){ bkMsg('Your board is too large to send to Drive from here. Use “Download a copy”, then upload that file to Drive.', true); return false; }
+      input.base64Content = {$file: {data: new Blob([json], {type: 'application/json'}), name: 'work-board-backup.json', type: 'application/json'}};
+    }
+    try { const pid = await backupFolder(); if (pid) input.parentId = pid; } catch {}
+    let res;
+    try { res = await mcp.callTool(DRIVE, 'create_file', input); }
+    catch (e) {
+      // The saved folder may have been deleted: find or make it again, once.
+      if (!input.parentId || !e || e.code !== 'tool_error') throw e;
+      settings = {...settings, backupFolderId: ''}; delete input.parentId;
+      try { const pid = await backupFolder(); if (pid) input.parentId = pid; } catch {}
+      res = await mcp.callTool(DRIVE, 'create_file', input);
+    }
+    const f = res && typeof res.payload === 'object' && res.payload ? res.payload : {};
+    const fid = f.id || f.fileId || '';
+    const url = f.viewUrl || f.webViewLink || f.alternateLink || (fid ? `https://drive.google.com/file/d/${fid}/view` : '');
+    const patch = {lastBackupAt: nowIso(), lastBackupUrl: url, lastBackupTitle: title};
+    settings = {...settings, ...patch}; upd('settings', 'app', patch).catch(()=>{});
+    autoWaiting = false;
+    if (drawer && drawer.type === 'settings' && !drawerBusy()) renderDrawer();
+    bkMsg(`Saved “${title}” to Google Drive (${data.counts.clients} clients, ${data.counts.jobs} jobs, ${data.counts.tasks} tasks, ${data.counts.notes} notes).`);
+    if (opts.auto) toast(`${AUTO_WORD[0].toUpperCase() + AUTO_WORD.slice(1)} backup saved to Google Drive`); else if (!opts.prefix) toast('Backup saved to Google Drive');
+    return true;
+  } catch (e) {
+    const m = driveErr(e) + (e && (e.code === 'server_unavailable' || e.code === 'upstream_error') ? ' Check Drive for a new backup file before trying again.' : '');
+    bkMsg(m, true); console.error(e);
+    if (opts.auto) toast(`The ${AUTO_WORD} backup didn’t run. Open Settings to back up by hand.`);
+    return false;
+  } finally { bkBusy(false); }
+}
+let autoTried = false, autoWaiting = false;
+async function maybeAutoBackup(){
+  if (!HAS_DRIVE) return;
+  if (autoTried || !loaded || dbMissing || readOnly || canWrite === false || settings.autoBackup === false) return;
+  const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : 0;
+  if (Date.now() - last < AUTO_DAYS * 864e5) return;
+  autoTried = true;
+  // Only run on its own when Drive is already allowed; never pop a permission prompt on open.
+  let st = 'unavailable';
+  try { const perm = await window.claude.use('permissions'); if (perm) st = await perm.state('mcp:' + DRIVE); } catch {}
+  if (st !== 'granted'){ autoWaiting = true; if (window.WB_STANDALONE) backupDueBar(); return; }
+  backupToDrive({auto: true});
+}
+// Standalone: Google needs a click before it signs in, so a due backup asks with a button.
+let dueLaterUntil = 0;
+function backupDueBar(){
+  if (Date.now() < dueLaterUntil || document.querySelector('.wb-due')) return;
+  const bar = document.createElement('div');
+  bar.className = 'wb-due'; bar.setAttribute('role', 'status');
+  bar.innerHTML = '<span>Your daily Google Drive backup is due.</span><button class="btn primary small" type="button">Back up now</button><button class="btn ghost small" type="button">Later</button>';
+  const [now, later] = bar.querySelectorAll('button');
+  now.onclick = async () => { now.disabled = true; now.textContent = 'Backing up…'; const ok = await backupToDrive(); if (ok) bar.remove(); else { now.disabled = false; now.textContent = 'Try again'; } };
+  later.onclick = () => { dueLaterUntil = Date.now() + 4 * 3600e3; bar.remove(); };
+  document.body.appendChild(bar);
+}
+// A board left open all day still backs up: check again every hour.
+if (window.WB_STANDALONE) setInterval(() => { autoTried = false; maybeAutoBackup(); }, 3600e3);
+
+// ---------- restore ----------
+let rs = null, restoring = false;
+function rsSet(v){ rs = v; if (drawer && drawer.type === 'settings') renderDrawer(); }
+const b64text = b => new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0)));
+const whenStr = s => { const d = new Date(s); return isNaN(d) ? '' : `${fmtLong(d)}, ${hm(d)}`; };
+function restoreArea(){
+  if (!rs) return '';
+  const cnt = d => { const c = k => Object.keys(d[k] || {}).length; const te = Object.values(d.time || {}).reduce((n,x) => n + ((x && x.entries) || []).length, 0); return `${c('clients')} clients, ${c('jobs')} jobs, ${c('tasks')} tasks, ${c('notes')} notes, ${te} time entries`; };
+  if (rs.stage === 'loading') return `<div class="hint">Looking in Google Drive…</div>`;
+  if (rs.stage === 'error') return `<div class="hint err-t">${esc(rs.msg)}</div>`;
+  if (rs.stage === 'list') return rs.files.length
+    ? `<div class="rs-list">${rs.files.map(f => `<div class="mi"><span class="grow">${esc(f.title)}<div class="t2">${esc(whenStr(f.createdTime))}</div></span><button class="btn small" data-act="rs-pick" data-id="${esc(f.id)}">Use this</button></div>`).join('')}</div>`
+    : `<div class="hint">No Work Board backups found in your Google Drive.</div>`;
+  if (rs.stage === 'confirm' || rs.stage === 'nosafe') return `<div class="rs-box"><b>Restore “${esc(rs.name)}”?</b>
+    <div class="hint">Backup taken ${esc(whenStr(rs.data.exportedAt))}: ${cnt(rs.data)}. The board will match it exactly, so anything added or changed since then is replaced or removed.</div>
+    ${rs.stage === 'nosafe' ? `<div class="hint${HAS_DRIVE ? ' err-t' : ''}">${HAS_DRIVE ? 'A copy of the board as it is now couldn’t be saved to Drive first. ' : ''}Download a copy of the board as it is now if you want one, then restore.</div>
+      <div class="bk-row"><button class="btn small" data-act="backup-dl">Download a copy</button><button class="btn warn small" data-act="rs-force">${HAS_DRIVE ? 'Restore anyway' : 'Restore this backup'}</button><button class="btn ghost small" data-act="rs-cancel">Cancel</button></div>`
+    : `<div class="hint">A copy of the board as it is now is saved to Drive first.</div>
+      <div class="bk-row"><button class="btn warn small" data-act="rs-go">Restore this backup</button><button class="btn ghost small" data-act="rs-cancel">Cancel</button></div>`}</div>`;
+  if (rs.stage === 'running') return `<div class="hint" id="rsMsg" role="status">${esc(rs.msg)}</div>`;
+  if (rs.stage === 'done') return `<div class="hint${rs.err ? ' err-t' : ''}" role="status">${esc(rs.msg)}</div>`;
+  return '';
+}
+async function rsListDrive(){
+  rsSet({stage: 'loading'});
+  try {
+    const r = await driveCall('search_files', {query: "title contains 'Work Board' and mimeType = 'application/json'", excludeContentSnippets: true, pageSize: 30});
+    const files = (r.files || []).filter(f => f.id).sort((a,b) => (b.createdTime||'').localeCompare(a.createdTime||'')).slice(0, 12);
+    rsSet({stage: 'list', files});
+  } catch (e) { rsSet({stage: 'error', msg: driveErr(e)}); }
+}
+async function rsPickDrive(fileId){
+  rsSet({stage: 'loading'});
+  try { const r = await driveCall('download_file_content', {fileId}); if (!r.content) throw new SyntaxError('empty'); rsCheck(JSON.parse(b64text(r.content)), r.title || 'Drive backup'); }
+  catch (e) { rsSet({stage: 'error', msg: e instanceof SyntaxError ? 'That file isn’t a Work Board backup.' : driveErr(e)}); }
+}
+function rsCheck(data, name){
+  const ok = data && data.app === 'Accounting Work Board' && ['clients','jobs','tasks'].every(k => data[k] && typeof data[k] === 'object' && !Array.isArray(data[k]));
+  if (!ok){ rsSet({stage: 'error', msg: 'That file isn’t a Work Board backup.'}); return; }
+  rsSet({stage: HAS_DRIVE ? 'confirm' : 'nosafe', data, name});
+}
+// Key order and the "updated" stamp don't count as a difference.
+const canon = v => Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).filter(k => k !== 'updated').sort().map(k => [k, canon(v[k])])) : v;
+const same = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+async function rsRun(force){
+  if (!rs || !rs.data) return;
+  const {data, name} = rs;
+  if (!force){
+    rsSet({stage: 'running', msg: 'Saving a copy of the board as it is now…'});
+    if (!(await backupToDrive({prefix: 'Work Board before restore'}))){ rsSet({stage: 'nosafe', data, name}); return; }
+  }
+  restoring = true; let done = 0, fail = 0, plan = [];
+  const msg = t => { const el = document.getElementById('rsMsg'); if (el) el.textContent = t; else rsSet({stage: 'running', msg: t}); };
+  rsSet({stage: 'running', msg: 'Working out what to change…'});
+  try {
+    for (const col of ['clients', 'jobs', 'tasks', 'notes', 'time']){
+      // An older backup made before the timesheet existed leaves the timesheet as it is.
+      if (col === 'time' && !data.time) continue;
+      const want = data[col] || {}, have = {};
+      (await db.collection(col).get()).docs.forEach(d => have[d.id] = d.data());
+      for (const [id, doc] of Object.entries(want)) if (!have[id] || !same(have[id], doc)) plan.push(['set', col, id, doc]);
+      for (const id of Object.keys(have)) if (!(id in want)) plan.push(['del', col, id]);
+    }
+    if (data.settings && typeof data.settings === 'object'){
+      // Keep this board's own backup bookkeeping rather than the old file's.
+      const keep = {}; for (const k of ['lastBackupAt','lastBackupUrl','lastBackupTitle','backupFolderId','backupFolderUrl','autoBackup']) if (settings[k] !== undefined) keep[k] = settings[k];
+      const ns = {...data.settings, ...keep}; if (!same(ns, settings)) plan.push(['set', 'settings', 'app', ns]);
+    }
+    for (const [op, col, id, doc] of plan){
+      msg(`Restoring… ${done} of ${plan.length} changes`);
+      const ref = db.doc(`${col}/${id}`);
+      const go = () => op === 'set' ? ref.set(doc) : ref.delete();
+      try { await go(); } catch (e) { if (e && e.code === 'unavailable'){ try { await new Promise(r => setTimeout(r, 800)); await go(); } catch { fail++; } } else fail++; }
+      done++;
+    }
+  } catch (e) { console.error(e); fail = fail || 1; }
+  finally { restoring = false; }
+  rsSet(fail ? {stage: 'done', err: true, msg: `${fail} of ${plan.length} changes didn’t save. Run the restore again to finish it.`}
+             : {stage: 'done', msg: plan.length ? `Board restored from “${name}” (${plan.length} change${plan.length===1?'':'s'}).` : 'The board already matches that backup. Nothing changed.'});
+  toast(fail ? 'Restore didn’t fully finish' : 'Board restored');
+  ensureInstances();
+}
+async function backupDownload(){
+  bkBusy(true); bkMsg('Preparing the file…');
+  try {
+    const dl = await window.claude.use('downloads');
+    if (!dl){ bkMsg('Downloads aren’t available here.', true); return; }
+    const data = await backupData();
+    await dl.save({filename: `Work Board backup ${stamp()}.json`, data: JSON.stringify(data)});
+    bkMsg('Backup file saved.');
+  } catch (e) { bkMsg(e && e.code === 'declined' ? 'Download cancelled.' : 'The download didn’t work. Try again.', true); }
+  finally { bkBusy(false); }
+}
+
+// ---------- toast ----------
+let toastTimer;
+function toast(msg, undo){
+  const r = document.getElementById('toastRoot');
+  r.innerHTML = `<div class="toast" role="status"><span>${esc(msg)}</span>${undo?'<button data-act="undo">Undo</button>':''}</div>`;
+  const b = r.querySelector('[data-act="undo"]'); if (b) b.onclick = () => { undo(); r.innerHTML = ''; };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { r.innerHTML = ''; }, undo ? 6000 : 3000);
+}
+
+// ---------- events ----------
+const qUpdate = debounce(() => { persistUi(); render(); }, 150);
+document.addEventListener('click', e => {
+  const nb = e.target.closest('#newBtn'); const menu = document.getElementById('newMenu');
+  if (nb){ menu.hidden = !menu.hidden; return; }
+  if (!e.target.closest('.menu')) menu.hidden = true;
+  if (e.target.closest('#settingsBtn, [data-open-settings]')){ openDrawer('settings'); return; }
+  const tab = e.target.closest('#tabs button'); if (tab){ ui.view = tab.dataset.view; persistUi(); render(); window.scrollTo(0,0); return; }
+  const nw = e.target.closest('[data-new]');
+  if (nw){ menu.hidden = true; if (readOnly){ toast('You can view this board but not change it.'); return; }
+    const k = nw.dataset.new, draft = {};
+    if (nw.dataset.client) draft.client = nw.dataset.client;
+    if (nw.dataset.ws) draft.ws = nw.dataset.ws;
+    if (k === 'time' && ui.view === 'time' && !nw.dataset.client && ((ui.tsWhat||'').trim() || (ui.tsClient||'').trim())){ Object.assign(draft, {title: ui.tsWhat || '', client: ui.tsClient || '', category: ui.tsCat || 'Client work', billable: ui.tsBill !== false}); }
+    openDrawer(k, null, draft); return; }
+  const a = e.target.closest('[data-act]'); if (!a) { const row = e.target.closest('[data-task]'); if (row){ if (selMode){ togglePick(row.dataset.task); } else openDrawer('task', row.dataset.task); } return; }
+  const act = a.dataset.act, id = a.dataset.id;
+  switch (act){
+    case 'close': closeDrawer(); break;
+    case 'toggle': { const t = tasks.get(id); if (t) setStatus(id, t.status === 'Done' ? 'In progress' : 'Done'); break; }
+    case 'status': break;
+    case 'mine': ui.mine = a.dataset.v === '1'; persistUi(); render(); break;
+    case 'ws': ui.ws = a.dataset.v; persistUi(); render(); break;
+    case 'stat': ui.stat = ui.stat === a.dataset.key ? '' : a.dataset.key; render(); break;
+    case 'boardws': ui.boardWs = a.dataset.v; persistUi(); render(); break;
+    case 'more': ui['more-'+a.dataset.key] = true; render(); break;
+    case 'selmode': selMode = !selMode; if (!selMode) tPicked.clear(); render(true); break;
+    case 'tpick': togglePick(id); break;
+    case 'tpick-all': { const all = shownIds.every(x => tPicked.has(x)); shownIds.forEach(x => all ? tPicked.delete(x) : tPicked.add(x)); render(true); break; }
+    case 'tpick-clear': tPicked.clear(); render(true); break;
+    case 'bulk': bulkStatus(a.dataset.v); break;
+    case 'backup-drive': backupToDrive(); break;
+    case 'tstart': startTimer(id); break;
+    case 'tpin': { const t = tasks.get(id); if (t) setFocus([id], !t.focus); break; }
+    case 'dpin': { const t = tasks.get(drawer && drawer.id); if (t) setFocus([drawer.id], !t.focus); break; }
+    case 'focus-clear': { const ids = [...tasks.entries()].filter(([,t]) => t.focus).map(([i]) => i); if (ids.length) setFocus(ids, false); break; }
+    case 'bulk-pin': { const on = a.dataset.v === '1'; const ids = [...tPicked].filter(i => tasks.has(i) && !!tasks.get(i).focus !== on && (!on || isOpen(tasks.get(i)))); if (!ids.length){ toast(on ? 'Already pinned' : 'None of those are pinned'); break; } tPicked.clear(); setFocus(ids, on); break; }
+    case 'fstop': stopFree(); break;
+    case 'go-time': ui.view = 'time'; persistUi(); render(); window.scrollTo(0,0); break;
+    case 'ts-start': tsStart(); break;
+    case 'ts-again': tsAgain(id); break;
+    case 'ts-xlsx': tsExcel(a); break;
+    case 'ts-range': ui.tsRange = a.dataset.v; persistUi(); render(); break;
+    case 'ts-move': { const v = +a.dataset.v, {s} = tsRange(); ui.tsAnchor = v === 0 ? '' : iso(ui.tsRange === 'month' ? new Date(s.getFullYear(), s.getMonth() + v, 1, 12) : addDays(s, 7*v)); persistUi(); render(); break; }
+    case 'open-time': openDrawer('time', id); break;
+    case 'save-time': saveTime(); break;
+    case 'del-time': delTime(); break;
+    case 'time-add-task': { const t = tasks.get(id); if (t) openDrawer('time', null, {taskId: id, title: t.title + (t.period ? ` · ${t.period}` : ''), client: t.client || '', category: t.ws === 'admin' ? 'Admin' : 'Client work', billable: t.ws !== 'admin' && !!t.client}); break; }
+    case 'tpause': pauseTimer(id); break;
+    case 'tfinish': finishTimer(id); break;
+    case 'note-add': addNote(); break;
+    case 'note-del': delNote(id); break;
+    case 'note-edit': startNoteEdit(id); break;
+    case 'note-pin': pinNote(id); break;
+    case 'nfilter': ui.nFilter = a.dataset.v; persistUi(); render(); break;
+    case 'nmore': ui['nopen-' + id] = true; render(); break;
+    case 'nv-add': addNoteFromView(); break;
+    case 'note-save': saveNoteEdit(id); break;
+    case 'note-cancel': cancelNoteEdit(); break;
+    case 'notes-all': drawer.allNotes = true; renderDrawer(); break;
+    case 'note-recv': break;
+    case 'rs-drive': rsListDrive(); break;
+    case 'rs-pick': rsPickDrive(id); break;
+    case 'rs-go': rsRun(false); break;
+    case 'rs-force': rsRun(true); break;
+    case 'rs-cancel': rsSet(null); break;
+    case 'backup-dl': backupDownload(); break;
+    case 'cview': ui.clientView = a.dataset.v; persistUi(); render(); break;
+    case 'shut': ui.shut[a.dataset.key] = !ui.shut[a.dataset.key]; persistUi(); render(); break;
+    case 'grp-go': ui.grp = a.dataset.v; persistUi(); render(); window.scrollTo(0,0); break;
+    case 'grp-clear': ui.grp = ''; persistUi(); render(); break;
+    case 'pick': e.stopPropagation(); break;
+    case 'pick-grp': { const ids = [...clients.entries()].filter(([cid,c]) => (groupOfClient(c).toLowerCase() || '~none') === a.dataset.key && (ui.showInactive || c.active !== false)).map(([cid]) => cid);
+      const all = ids.every(x => picked.has(x)); ids.forEach(x => all ? picked.delete(x) : picked.add(x)); render(); break; }
+    case 'pick-clear': picked.clear(); render(); break;
+    case 'grp-apply': { const name = (document.getElementById('grpName')||{}).value?.trim(); if (!name){ toast('Type a group name first.'); break; } setGroup([...picked], gkey(name)); break; }
+    case 'grp-remove': setGroup([...picked], ''); break;
+    case 'open-task': openDrawer('task', id); break;
+    case 'open-job': openDrawer('job', id); break;
+    case 'open-client': openDrawer('client', id); break;
+    case 'dstatus': if (drawer && drawer.id){ setStatus(drawer.id, a.dataset.v, {quiet:false}); } break;
+    case 'save-task': saveTask(); break;
+    case 'save-job': saveJob(); break;
+    case 'save-client': saveClient(); break;
+    case 'save-settings': saveSettings(); break;
+    case 'ask-del': drawer.confirmDel = true; renderDrawer(); break;
+    case 'cancel-del': drawer.confirmDel = false; renderDrawer(); break;
+    case 'del-task': { const did = drawer.id; closeDrawer(); del('tasks', did).then(() => toast('Task deleted')).catch(()=>{}); break; }
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'rsFile'){ const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    f.text().then(t => rsCheck(JSON.parse(t), f.name)).catch(() => rsSet({stage: 'error', msg: 'That file isn’t a Work Board backup.'})); return; }
+  if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value;
+  if (uiField(e.target)) return;
+  markDirty(e.target);
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'status'){ setStatus(a.dataset.id, a.value); a.blur(); }
+  else if (act === 'step' && drawer){ const t = tasks.get(drawer.id); if (!t) return; const steps = (t.steps||[]).map((s,i) => i === +a.dataset.i ? {...s, d:a.checked} : s);
+    const patch = {steps}; if (steps.length && steps.every(s => s.d) && isOpen(t) && t.status === 'Not started') patch.status = 'In progress';
+    if (steps.some(s => s.d) && t.status === 'Not started') patch.status = 'In progress';
+    upd('tasks', drawer.id, patch).catch(()=>{}); a.closest('.step').classList.toggle('done', a.checked); }
+  else if (act === 'note-recv'){ upd('notes', a.dataset.id, {open: !a.checked, receivedAt: a.checked ? nowIso() : ''}).catch(()=>{}); }
+  else if (act === 'freq' && drawer){ drawer.freqOverride = a.value; if (drawer.dirty) for (const k of ['day','offset','qrule','weekday','anchor','month','yday','freq']) delete drawer.dirty[k]; const fd = formData('jobForm'); const keep = {}; if (fd) for (const [k,v] of fd) keep[k] = v; renderDrawer();
+    const f = document.getElementById('jobForm'); if (f) for (const [k,v] of Object.entries(keep)){ const el = f.elements[k]; if (el && el.type !== 'checkbox' && !['day','offset','qrule','weekday','anchor','month','yday','freq'].includes(k)) el.value = v; } }
+  else if (act === 'pick'){ a.checked ? picked.add(a.dataset.id) : picked.delete(a.dataset.id); render(); }
+  else if (act === 'grp'){ ui.grp = a.value; persistUi(); render(true); }
+  else if (act === 'inactive'){ ui.showInactive = a.checked; persistUi(); render(); }
+  else if (act === 'allStatus'){ ui.allStatus = a.value; persistUi(); render(true); }
+  else if (act === 'allWs'){ ui.allWs = a.value; persistUi(); render(true); }
+});
+function uiField(el){ const u = el.closest && el.closest('[data-ui]'); if (!u) return false;
+  ui[u.dataset.ui] = u.type === 'checkbox' ? u.checked : u.value;
+  if (u.dataset.ui === 'tsCat'){ ui.tsBill = u.value === 'Client work'; const b = document.getElementById('ts-bill'); if (b) b.checked = ui.tsBill; }
+  persistUi(); return true; }
+document.addEventListener('input', e => { if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value; if (uiField(e.target)) return; markDirty(e.target); const a = e.target.closest('[data-act="q"]'); if (a){ ui[a.dataset.key] = a.value; qUpdate(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest && e.target.closest('.note-quick') && e.target.tagName === 'INPUT'){ e.preventDefault(); addNoteFromView(); return; }
+  if (e.key === 'Enter' && e.target.closest && e.target.closest('.ts-start') && e.target.tagName === 'INPUT'){ e.preventDefault(); tsStart(); return; } if (e.key === 'Enter' && e.target.matches('label[for="rsFile"]')){ e.preventDefault(); document.getElementById('rsFile').click(); return; } if (e.key === 'Escape'){ if (drawer) closeDrawer(); else if (selMode){ selMode = false; tPicked.clear(); render(true); } document.getElementById('newMenu').hidden = true; } });
+document.addEventListener('submit', e => e.preventDefault());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && loaded){ render(); ensureInstances(); } });
+
+boot();
+})();
+</script>
+
+</body>
+</html>
