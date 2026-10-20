@@ -924,7 +924,10 @@ async function ensureInstances(){
     for (const [jid, j] of [...jobs]){
       if (!j.active) continue;
       const from = j.from ? D(j.from) : floor, start = from > floor ? from : floor;
-      for (const p of periodsFor(j, start, end)){
+      const ps = periodsFor(j, start, end);
+      // Quarterly and yearly jobs can fall due past the horizon: always show the next one coming up.
+      if (!ps.some(p => p.due >= t0)){ const next = periodsFor(j, start, addDays(t0, 400)).find(p => p.due >= t0); if (next) ps.push(next); }
+      for (const p of ps){
         const id = `${jid}--${p.key}`;
         if (tasks.has(id)) continue;
         const ref = db.doc(`tasks/${id}`);
