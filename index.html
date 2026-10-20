@@ -592,12 +592,20 @@ function adjustTask(taskId, delta){
   upd('tasks', taskId, {timeSec: Math.max(0, (+t.timeSec || 0) + delta)}).catch(()=>{});
 }
 // Closing a task's running session: the task keeps a running total, the timesheet gets the entry.
+// The task's note becomes the timesheet narration for each timer session, including text typed
+// in the open task panel but not saved yet.
+function taskNarration(id, t){
+  const el = drawer && drawer.type === 'task' && drawer.id === id ? dRoot.querySelector('#taskForm [name="notes"]') : null;
+  return String((el ? el.value : t.notes) || '').trim();
+}
+// Entries logged before narration was copied fall back to their task's note.
+const entryNotes = x => x.notes || (x.taskId && tasks.has(x.taskId) ? String(tasks.get(x.taskId).notes || '').trim() : '');
 function stopTask(id, t){
   if (!t || !t.timerStart) return null;
   const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(t.timerStart)) / 1000));
   const entry = {id: rid('e'), start: t.timerStart, end: e, sec, taskId: id, clientId: t.clientId || '', client: t.client || '',
     title: t.title + (t.period ? ` · ${t.period}` : ''), category: t.ws === 'admin' ? 'Admin' : 'Client work', billable: t.ws !== 'admin' && !!t.client,
-    notes: '', source: 'timer', by: meName()};
+    notes: taskNarration(id, t), source: 'timer', by: meName()};
   return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec}, entry, date: iso(new Date(t.timerStart))};
 }
 async function startTimer(id){
@@ -704,7 +712,7 @@ function tsRange(){
   const s = addDays(a, -((a.getDay() + 6) % 7)), e = addDays(s, 6);
   return {s, e, label: `${s.getDate()} ${MON[s.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]} ${e.getFullYear()}`};
 }
-function tsMatch(x){ const q = (ui.tsQ || '').toLowerCase(); if (!q) return true; return [x.client, nice(x.client), x.title, x.category, x.notes].some(v => String(v||'').toLowerCase().includes(q)); }
+function tsMatch(x){ const q = (ui.tsQ || '').toLowerCase(); if (!q) return true; return [x.client, nice(x.client), x.title, x.category, entryNotes(x)].some(v => String(v||'').toLowerCase().includes(q)); }
 function viewTime(){
   const {s, e, label} = tsRange(), sI = iso(s), eI = iso(e), t0 = iso(today());
   if (sI < timeCutoff) loadOld(sI, eI < timeCutoff ? eI : timeCutoff);
@@ -717,7 +725,7 @@ function viewTime(){
     return `<div class="day${d===t0?' today':''}"><span class="dn">${dd.toLocaleDateString('en-AU', {weekday:'short'})} ${dd.getDate()}</span><span class="dh">${sec ? `${+(sec/3600).toFixed(2)}h` : '–'}</span><span class="bar"><i style="width:${Math.min(100, sec/360/0.8)}%"></i></span></div>`; }).join('')}</div>`;
   const row = x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
     return `<div class="trow" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}">
-      <div class="main"><div class="t1">${esc(nice(x.client) || 'Internal')}</div><div class="t2">${esc(x.title || 'No description')}${x.notes ? ` · ${esc(x.notes.slice(0,80))}` : ''}</div></div>
+      <div class="main"><div class="t1">${esc(nice(x.client) || 'Internal')}</div><div class="t2">${esc(x.title || 'No description')}${entryNotes(x) ? ` · ${esc(entryNotes(x).slice(0,80))}` : ''}</div></div>
       <div class="meta"><span class="mono">${st ? `${hm(st)}${en ? `–${hm(en)}` : ''}` : 'Added by hand'}</span><span class="badge k-${slug(x.category||'other')}">${esc(x.category || 'Other')}</span><span class="bill${x.billable?' on':''}">${x.billable ? 'Billable' : 'Non-billable'}</span></div>
       <span class="dur">${fmtDur(x.sec)}</span>
       ${readOnly ? '<span></span>' : `<button class="tbtn" data-act="ts-again" data-id="${esc(x.date + '|' + x.id)}" aria-label="Start a timer on this again" title="Start a timer on this again">${IC.play}</button>`}</div>`; };
@@ -786,7 +794,7 @@ async function tsExcel(btn){
     const head = ['Date', 'Day', 'Start', 'End', 'Hours', 'Client', 'Work', 'Category', 'Billable', 'Notes', 'From a task'];
     const body = rows.map(x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
       return [cell(xlDate(x.date), 'dd/mm/yyyy'), D(x.date).toLocaleDateString('en-AU', {weekday:'short'}), st ? cell(xlTime(st), 'h:mm AM/PM') : '', en ? cell(xlTime(en), 'h:mm AM/PM') : '',
-        cell(H(x.sec), '0.00'), nice(x.client) || 'Internal', x.title || '', x.category || 'Other', x.billable ? 'Yes' : 'No', x.notes || '', x.taskId ? 'Yes' : 'No']; });
+        cell(H(x.sec), '0.00'), nice(x.client) || 'Internal', x.title || '', x.category || 'Other', x.billable ? 'Yes' : 'No', entryNotes(x), x.taskId ? 'Yes' : 'No']; });
     const n = body.length, last = n + 1;
     const tot = [{t:'s', v:'Total'}, '', '', '', {t:'n', f:`SUM(E2:E${last})`, v: H(sumSec(rows)), z:'0.00'}, '', '', '', '', '', ''];
     const bil = [{t:'s', v:'Billable'}, '', '', '', {t:'n', f:`SUMIF(I2:I${last},"Yes",E2:E${last})`, v: H(sumSec(rows.filter(x => x.billable))), z:'0.00'}, '', '', '', '', '', ''];
@@ -847,7 +855,7 @@ function drawerTime(){
     <div class="two"><div class="field"><label for="x-dur">Duration</label><input id="x-dur" name="dur" value="${du}" placeholder="1:30 or 1.5"${dis()}><input type="hidden" name="durOrig" value="${du}"></div>
       <label class="check" style="align-self:end;padding-bottom:9px"><input type="checkbox" name="billable" ${x.billable?'checked':''}${dis()}> Billable</label></div>
     <div class="hint">Give a start and end time, or just a duration such as 1:30 or 1.5 hours.</div>
-    <div class="field"><label for="x-notes">Notes</label><textarea id="x-notes" name="notes" style="min-height:70px"${dis()}>${esc(x.notes||'')}</textarea></div>
+    <div class="field"><label for="x-notes">Notes</label><textarea id="x-notes" name="notes" style="min-height:70px"${dis()}>${esc(entryNotes(x))}</textarea></div>
     ${x.taskId ? `<div class="hint">From the task ${tk ? `<button type="button" class="linkish" data-act="open-task" data-id="${esc(x.taskId)}">${esc(tk.title)}${tk.period?` · ${esc(tk.period)}`:''}</button>` : `<b>${esc(x.title||'')}</b>`}. Changing the time here updates the task's total.</div>` : ''}
   </form>
   <div class="d-foot">${!isNew && !readOnly ? (drawer.confirmDel ? `<span><button class="btn warn" data-act="del-time">Delete entry</button> <button class="btn ghost" data-act="cancel-del">Keep</button></span>` : `<button class="btn ghost danger" data-act="ask-del">Delete</button>`) : '<span></span>'}
