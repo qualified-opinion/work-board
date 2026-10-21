@@ -349,6 +349,7 @@ table.grid{border-collapse:collapse;width:100%}
 .dl tr:last-child td{border-bottom:0}
 .section{margin-top:26px;display:flex;flex-direction:column;gap:10px}
 .drawer{container-type:inline-size}
+@container (max-width:480px){.d-head{flex-wrap:wrap;justify-content:flex-end}.d-head .grow{flex-basis:100%;order:2}}
 .d-resize{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2;touch-action:none}
 .d-resize::after{content:"";position:absolute;left:3px;top:50%;width:4px;height:44px;margin-top:-22px;border-radius:3px;background:var(--line,#ccd);opacity:.9;transition:background .15s}
 .d-resize:hover::after,.d-resize:focus-visible::after,.d-resize.on::after{background:var(--accent,#0f6b4f)}
@@ -1333,6 +1334,7 @@ function drawerTask(){
   const j = t.jobId ? jobs.get(t.jobId) : null; const db_ = dueBits(t);
   return `<div class="d-head"><div class="grow"><div class="eyebrow">${isNew ? 'New one-off task' : (j ? 'Recurring · ' + esc(FREQ[j.freq]||'') : 'One-off task')}</div>
       <h2>${isNew ? 'Add a task' : esc(t.title)}</h2>${isNew ? '' : `<div class="sub">${esc(nice(t.client)||'General')}${t.period?` · <span class="mono">${esc(t.period)}</span>`:''} · <span class="${db_.cls==='late'?'late-n':''}">${db_.small}</span></div>`}</div>
+      ${j ? `<button class="btn ghost small" data-act="open-job" data-id="${esc(t.jobId)}" title="Change this recurring job's schedule, steps or owner">Edit job</button>` : ''}
       ${isNew || readOnly ? '' : `<button class="btn ghost small" data-act="dpin" aria-pressed="${!!t.focus}">${t.focus ? 'Unpin from focus' : 'Pin to focus'}</button>`}
       <button class="btn ghost small" data-act="close" aria-label="Close">Close</button></div>
   <form class="d-body" id="taskForm" autocomplete="off">
