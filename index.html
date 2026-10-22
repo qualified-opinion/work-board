@@ -792,14 +792,15 @@ async function tsExcel(btn){
     const sheet = (aoa, widths, extra) => { const ws = X.utils.aoa_to_sheet([[]]); X.utils.sheet_add_aoa(ws, aoa, {origin: 'A1'}); ws['!cols'] = widths.map(w => ({wch: w})); if (extra) extra(ws); return ws; };
 
     // Entries
-    const head = ['Date', 'Day', 'Start', 'End', 'Hours', 'Client', 'Work', 'Category', 'Billable', 'Notes', 'From a task'];
+    const head = ['Date', 'Day', 'Start', 'End', 'Hours', 'Client', 'Work', 'Notes', 'Category', 'Billable', 'From a task'];
+    const flat = t => String(t || '').split(/\s*\n\s*/).filter(Boolean).join('; ');
     const body = rows.map(x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
       return [cell(xlDate(x.date), 'dd/mm/yyyy'), D(x.date).toLocaleDateString('en-AU', {weekday:'short'}), st ? cell(xlTime(st), 'h:mm AM/PM') : '', en ? cell(xlTime(en), 'h:mm AM/PM') : '',
-        cell(H(x.sec), '0.00'), nice(x.client) || 'Internal', x.title || '', x.category || 'Other', x.billable ? 'Yes' : 'No', entryNotes(x), x.taskId ? 'Yes' : 'No']; });
+        cell(H(x.sec), '0.00'), nice(x.client) || 'Internal', x.title || '', flat(entryNotes(x)), x.category || 'Other', x.billable ? 'Yes' : 'No', x.taskId ? 'Yes' : 'No']; });
     const n = body.length, last = n + 1;
     const tot = [{t:'s', v:'Total'}, '', '', '', {t:'n', f:`SUM(E2:E${last})`, v: H(sumSec(rows)), z:'0.00'}, '', '', '', '', '', ''];
-    const bil = [{t:'s', v:'Billable'}, '', '', '', {t:'n', f:`SUMIF(I2:I${last},"Yes",E2:E${last})`, v: H(sumSec(rows.filter(x => x.billable))), z:'0.00'}, '', '', '', '', '', ''];
-    const ws1 = sheet([head, ...body, [], tot, bil], [11, 6, 10, 10, 8, 34, 44, 18, 9, 36, 11], ws => { ws['!autofilter'] = {ref: `A1:K${last}`}; });
+    const bil = [{t:'s', v:'Billable'}, '', '', '', {t:'n', f:`SUMIF(J2:J${last},"Yes",E2:E${last})`, v: H(sumSec(rows.filter(x => x.billable))), z:'0.00'}, '', '', '', '', '', ''];
+    const ws1 = sheet([head, ...body, [], tot, bil], [11, 6, 10, 10, 8, 34, 44, 60, 18, 9, 11], ws => { ws['!autofilter'] = {ref: `A1:K${last}`}; });
 
     // By client
     const byC = new Map(); for (const x of rows){ const k = nice(x.client) || `Internal · ${x.category || 'Other'}`; const o = byC.get(k) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; byC.set(k, o); }
