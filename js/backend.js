@@ -85,20 +85,23 @@
           d.createObjectStore('outbox');
           d.createObjectStore('meta');
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => { const d = req.result; d.onversionchange = () => d.close(); resolve(d); };
         req.onerror = () => resolve(null);
+        // Another tab holding an old version open: give up rather than stay on "Loading" forever.
+        req.onblocked = () => setTimeout(() => resolve(null), 5000);
       } catch { resolve(null); }
     });
   }
   function tx(name, mode, fn) {
     if (!idb) return Promise.resolve();
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
+      const fail = e => reject({ code: e && e.name === 'QuotaExceededError' ? 'quota_exceeded' : 'unavailable', message: (e && e.message) || 'Could not save on this device' });
       try {
         const t = idb.transaction(name, mode);
         const out = fn(t.objectStore(name));
         t.oncomplete = () => resolve(out && 'result' in out ? out.result : undefined);
-        t.onerror = t.onabort = () => resolve(undefined);
-      } catch { resolve(undefined); }
+        t.onerror = t.onabort = () => fail(t.error);
+      } catch (e) { fail(e); }
     });
   }
   const idbAll = name => new Promise(resolve => {
@@ -110,34 +113,54 @@
       req.onerror = () => resolve(out);
     } catch { resolve([]); }
   });
-  const idbGet = (name, key) => tx(name, 'readonly', s => s.get(key));
-  const idbPut = (name, key, val) => tx(name, 'readwrite', s => s.put(val, key));
-  const idbDel = (name, key) => tx(name, 'readwrite', s => s.delete(key));
-  const idbClear = name => tx(name, 'readwrite', s => s.clear());
+  const idbGet = (name, key) => tx(name, 'readonly', s => s.get(key)).catch(() => undefined);
+  const idbPut = (name, key, val) => tx(name, 'readwrite', s => s.put(val, key)).catch(e => console.warn(e));
+  const idbDel = (name, key) => tx(name, 'readwrite', s => s.delete(key)).catch(e => console.warn(e));
+  const idbClear = name => tx(name, 'readwrite', s => s.clear()).catch(e => console.warn(e));
 
   // Writes to IndexedDB are coalesced so a burst of edits (a restore, a bulk change) is one transaction.
+  // Each write's promise settles once its batch is saved, so the app hears about a full disk.
   const localDirty = new Map();
-  let localTimer = null;
+  let localTimer = null, localWait = null;
   function saveLocal(path, data) {
     localDirty.set(path, data);
+    if (!localWait) { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); localWait = { p, res, rej }; }
     if (!localTimer) localTimer = setTimeout(flushLocal, 50);
+    return localWait.p;
   }
   function flushLocal() {
-    localTimer = null;
-    if (!idb || !localDirty.size) return;
+    clearTimeout(localTimer); localTimer = null;
+    const w = localWait; localWait = null;
+    if (!w) return;
+    if (!idb || !localDirty.size) { w.res(); return; }
     const batch = [...localDirty];
     localDirty.clear();
-    tx('docs', 'readwrite', s => { for (const [p, d] of batch) d === undefined ? s.delete(p) : s.put(d, p); });
+    tx('docs', 'readwrite', s => { for (const [p, d] of batch) d === undefined ? s.delete(p) : s.put(d, p); })
+      .then(w.res, e => {
+        // Keep the unsaved changes queued (unless newer ones replaced them) so the next save retries them.
+        for (const [p, d] of batch) if (!localDirty.has(p)) localDirty.set(p, d);
+        w.rej(e);
+      });
   }
+  // Save straight away when the tab is closed or hidden (phones freeze background tabs).
+  addEventListener('pagehide', flushLocal);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushLocal(); });
 
   // Other tabs on this device see changes too.
   const bc = 'BroadcastChannel' in window ? new BroadcastChannel('work-board') : null;
-  if (bc) bc.onmessage = e => { const { path, data } = e.data || {}; if (!path) return; apply(path, data); };
+  // Messages that arrive while this tab is still loading are kept and applied on top of the saved copy.
+  const early = new Map();
+  if (bc) bc.onmessage = e => { const { path, data } = e.data || {}; if (!path) return; if (!ready) { early.set(path, data); return; } remote(path, data); };
+  function remote(path, data) {
+    if (data === undefined) store.delete(path); else store.set(path, data);
+    notify([path]);
+  }
 
   function apply(path, data) {
     if (data === undefined) store.delete(path); else store.set(path, data);
-    saveLocal(path, data);
+    const saved = saveLocal(path, data);
     notify([path]);
+    return saved;
   }
 
   // ---------- Supabase sync ----------
@@ -146,14 +169,14 @@
   let flushing = false, flushTimer = null, lastError = '';
 
   function write(path, data) {
-    apply(path, data);
+    const saved = apply(path, data);
     if (bc) bc.postMessage({ path, data });
     if (CLOUD) {
       outbox.set(path, data);
       idbPut('outbox', path, data === undefined ? { del: true } : { data });
       scheduleFlush(30);
     }
-    return Promise.resolve();
+    return saved;
   }
   function scheduleFlush(ms) {
     status();
@@ -300,6 +323,8 @@
 
   async function start() {
     idb = await openIdb();
+    // Ask the browser not to clear this site's data when space runs low.
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
     await domReady;
     if (CLOUD) {
       if (!window.supabase) await loadScript('vendor/supabase.js');
@@ -315,6 +340,8 @@
       await idbPut('meta', 'owner', uid);
     }
     for (const [p, d] of await idbAll('docs')) store.set(p, d);
+    for (const [p, d] of early) d === undefined ? store.delete(p) : store.set(p, d);
+    early.clear();
     if (CLOUD) {
       for (const [p, v] of await idbAll('outbox')) outbox.set(p, v.del ? undefined : v.data);
       try { await fullSync(); } catch (e) { lastError = 'offline'; console.warn('Starting from the copy on this device', e); }
@@ -324,6 +351,13 @@
     ready = true;
     readyResolve();
     status();
+    if (!idb && !CLOUD) noStorageBanner();
+  }
+  function noStorageBanner() {
+    const bar = document.createElement('div');
+    bar.className = 'wb-due'; bar.setAttribute('role', 'alert');
+    bar.textContent = 'This browser isn’t saving your board (site data may be blocked, or this is a private window). Changes will be lost when you close the page. Allow site data for this site, or use Settings > Download a copy before you close it.';
+    document.body.prepend(bar);
   }
   const started = start();
 
@@ -335,7 +369,9 @@
       set(data) { return readyP.then(() => write(path, clone(data))); },
       async update(patch) {
         await readyP;
-        // Merges into the document, creating it if it doesn't exist yet (a new board has no settings).
+        // Merges into the document. Like Firestore, a removed document isn't brought back as a fragment;
+        // settings are the exception, since a new board has none yet.
+        if (!store.has(path) && !path.startsWith('settings/')) throw { code: 'invalid_argument', message: 'Document no longer exists' };
         return write(path, deepMerge(clone(store.get(path) || {}), patch));
       },
       delete() { return readyP.then(() => (store.has(path) ? write(path, undefined) : undefined)); },

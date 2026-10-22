@@ -544,10 +544,10 @@ function setStatus(id, status, opts = {}){
   if (status === 'Done' && (t.steps||[]).length) patch.steps = t.steps.map(s => ({...s, d:true}));
   // Closing a task stops its timer and logs the time; Undo takes the entry back off and starts the timer again.
   let logged = null;
-  if (!OPEN.includes(status) && t.timerStart){ logged = stopTask(id, t); Object.assign(patch, logged.patch); Object.assign(prev, {timerStart: t.timerStart, timeSec: +t.timeSec || 0}); addEntry(logged.date, logged.entry).catch(()=>{}); }
+  if (!OPEN.includes(status) && t.timerStart){ logged = stopTask(id, t); Object.assign(patch, logged.patch); Object.assign(prev, {timerStart: t.timerStart, timeSec: +t.timeSec || 0}); logPieces(logged.pieces); }
   if (logged) tasks.set(id, {...t, ...patch});
   upd('tasks', id, patch).then(() => { if (status === 'Done' || status === 'Not applicable') ensureInstances(); }).catch(()=>{});
-  const undo = () => { upd('tasks', id, prev).catch(()=>{}); if (logged) removeEntry(logged.date, logged.entry.id).catch(()=>{}); };
+  const undo = () => { upd('tasks', id, prev).catch(()=>{}); if (logged) unlogPieces(logged.pieces); };
   if (!opts.quiet) toast(`${t.title} · ${nice(t.client) || 'no client'} → ${status}`, undo);
   return undo;
 }
@@ -601,13 +601,23 @@ function taskNarration(id, t){
 }
 // Entries logged before narration was copied fall back to their task's note.
 const entryNotes = x => x.notes || (x.taskId && tasks.has(x.taskId) ? String(tasks.get(x.taskId).notes || '').trim() : '');
+// A session that runs past midnight is logged as one entry per day.
+function splitDays(startIso, endIso, base){
+  const out = []; let a = new Date(startIso); const end = new Date(endIso);
+  do { const mid = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 1), b = mid < end ? mid : end;
+    out.push({date: iso(a), entry: {...base, id: rid('e'), start: a.toISOString(), end: b.toISOString(), sec: Math.max(0, Math.round((b - a) / 1000))}});
+    a = b; } while (a < end);
+  return out;
+}
+const logPieces = ps => Promise.all(ps.map(p => addEntry(p.date, p.entry).catch(()=>{})));
+const unlogPieces = ps => Promise.all(ps.map(p => removeEntry(p.date, p.entry.id).catch(()=>{})));
 function stopTask(id, t){
   if (!t || !t.timerStart) return null;
   const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(t.timerStart)) / 1000));
-  const entry = {id: rid('e'), start: t.timerStart, end: e, sec, taskId: id, clientId: t.clientId || '', client: t.client || '',
+  const pieces = splitDays(t.timerStart, e, {taskId: id, clientId: t.clientId || '', client: t.client || '',
     title: t.title + (t.period ? ` · ${t.period}` : ''), category: t.ws === 'admin' ? 'Admin' : 'Client work', billable: t.ws !== 'admin' && !!t.client,
-    notes: taskNarration(id, t), source: 'timer', by: meName()};
-  return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec}, entry, date: iso(new Date(t.timerStart))};
+    notes: taskNarration(id, t), source: 'timer', by: meName()});
+  return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec}, pieces, sec};
 }
 async function startTimer(id){
   const t = tasks.get(id); if (!t || t.timerStart || readOnly) return;
@@ -623,8 +633,8 @@ async function pauseTimer(id, opts = {}){
   const t = tasks.get(id), r = stopTask(id, t); if (!r) return;
   tasks.set(id, {...t, ...r.patch}); render(); if (drawer) renderDrawer();
   upd('tasks', id, r.patch).catch(()=>{});
-  addEntry(r.date, r.entry).catch(()=>{});
-  if (!opts.quiet) toast(`Paused · ${fmtDur(r.entry.sec)} added to your timesheet`);
+  await logPieces(r.pieces);
+  if (!opts.quiet) toast(`Paused · ${fmtDur(r.sec)} added to your timesheet`);
 }
 function finishTimer(id){
   const t = tasks.get(id); if (!t) return;
@@ -644,11 +654,10 @@ async function stopFree(opts = {}){
   const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(f.start)) / 1000));
   freeTimer = null; render();
   put('settings', 'timer', {start: ''}).catch(()=>{});
-  const entry = {id: rid('e'), start: f.start, end: e, sec, taskId: '', clientId: f.clientId || '', client: f.client || '', title: f.title || '',
-    category: f.category || 'Other', billable: !!f.billable, notes: f.notes || '', source: 'timer', by: meName()};
-  const date = iso(new Date(f.start));
-  await addEntry(date, entry).catch(()=>{});
-  if (!opts.quiet) toast(`Logged ${fmtDur(sec)} to your timesheet`, () => removeEntry(date, entry.id).catch(()=>{}));
+  const pieces = splitDays(f.start, e, {taskId: '', clientId: f.clientId || '', client: f.client || '', title: f.title || '',
+    category: f.category || 'Other', billable: !!f.billable, notes: f.notes || '', source: 'timer', by: meName()});
+  await logPieces(pieces);
+  if (!opts.quiet) toast(`Logged ${fmtDur(sec)} to your timesheet`, () => unlogPieces(pieces));
 }
 function timerBtn(id, t){
   if (readOnly || selMode || !isOpen(t)) return '';
@@ -725,7 +734,7 @@ function viewTime(){
   const strip = ui.tsRange === 'month' ? '' : `<div class="days">${[...days].reverse().map(d => { const sec = sumSec(per.get(d)); const dd = D(d);
     return `<div class="day${d===t0?' today':''}"><span class="dn">${dd.toLocaleDateString('en-AU', {weekday:'short'})} ${dd.getDate()}</span><span class="dh">${sec ? `${+(sec/3600).toFixed(2)}h` : '–'}</span><span class="bar"><i style="width:${Math.min(100, sec/360/0.8)}%"></i></span></div>`; }).join('')}</div>`;
   const row = x => { const st = x.start ? new Date(x.start) : null, en = x.end ? new Date(x.end) : null;
-    return `<div class="trow" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}">
+    return `<div class="trow" role="button" tabindex="0" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}">
       <div class="main"><div class="t1">${esc(nice(x.client) || 'Internal')}</div><div class="t2">${esc(x.title || 'No description')}${entryNotes(x) ? ` · ${esc(entryNotes(x).slice(0,80))}` : ''}</div></div>
       <div class="meta"><span class="mono">${st ? `${hm(st)}${en ? `–${hm(en)}` : ''}` : 'Added by hand'}</span><span class="badge k-${slug(x.category||'other')}">${esc(x.category || 'Other')}</span><span class="bill${x.billable?' on':''}">${x.billable ? 'Billable' : 'Non-billable'}</span></div>
       <span class="dur">${fmtDur(x.sec)}</span>
@@ -787,7 +796,7 @@ async function tsExcel(btn){
   if (btn){ btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
     const X = await loadXlsx();
-    const H = n => +((+n || 0) / 3600).toFixed(2);
+    const H = n => (+n || 0) / 3600;
     const cell = (v, z) => v === '' || v == null ? {t:'s', v:''} : typeof v === 'number' ? (z ? {t:'n', v, z} : {t:'n', v}) : {t:'s', v: String(v)};
     const sheet = (aoa, widths, extra) => { const ws = X.utils.aoa_to_sheet([[]]); X.utils.sheet_add_aoa(ws, aoa, {origin: 'A1'}); ws['!cols'] = widths.map(w => ({wch: w})); if (extra) extra(ws); return ws; };
 
@@ -805,15 +814,15 @@ async function tsExcel(btn){
     // By client
     const byC = new Map(); for (const x of rows){ const k = nice(x.client) || `Internal · ${x.category || 'Other'}`; const o = byC.get(k) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; byC.set(k, o); }
     const cl = [...byC.entries()].sort((a,b) => (b[1].b+b[1].n) - (a[1].b+a[1].n));
-    const cRows = cl.map(([k,o], i) => [k, o.b ? cell(H(o.b), '0.00') : '', o.n ? cell(H(o.n), '0.00') : '', {t:'n', f:`B${i+2}+C${i+2}`, v: H(o.b+o.n), z:'0.00'}]);
-    const cl1 = cl.length + 1, sumCol = (c, list) => ({t:'n', f:`SUM(${c}2:${c}${cl1})`, z:'0.00', v: +list.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0).toFixed(2)});
+    const cRows = cl.map(([k,o], i) => [k, o.b ? cell(H(o.b), '0.00') : null, o.n ? cell(H(o.n), '0.00') : null, {t:'n', f:`SUM(B${i+2}:C${i+2})`, v: H(o.b+o.n), z:'0.00'}]);
+    const cl1 = cl.length + 1, sumCol = (c, list) => ({t:'n', f:`SUM(${c}2:${c}${cl1})`, z:'0.00', v: list.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0)});
     const ws2 = sheet([['Client', 'Billable hours', 'Non-billable hours', 'Total hours'], ...cRows, [], ['Total', sumCol('B', cRows), sumCol('C', cRows), sumCol('D', cRows)]], [40, 15, 18, 13]);
 
     // By day
     const days = new Map(); for (const x of rows){ const o = days.get(x.date) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; days.set(x.date, o); }
     const dl = [...days.entries()].sort((a,b) => a[0].localeCompare(b[0]));
-    const dRows = dl.map(([d,o], i) => [cell(xlDate(d), 'ddd dd/mm/yyyy'), o.b ? cell(H(o.b), '0.00') : '', o.n ? cell(H(o.n), '0.00') : '', {t:'n', f:`B${i+2}+C${i+2}`, v: H(o.b+o.n), z:'0.00'}]);
-    const dl1 = dl.length + 1, sumD = c => ({t:'n', f:`SUM(${c}2:${c}${dl1})`, z:'0.00', v: +dRows.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0).toFixed(2)});
+    const dRows = dl.map(([d,o], i) => [cell(xlDate(d), 'ddd dd/mm/yyyy'), o.b ? cell(H(o.b), '0.00') : null, o.n ? cell(H(o.n), '0.00') : null, {t:'n', f:`SUM(B${i+2}:C${i+2})`, v: H(o.b+o.n), z:'0.00'}]);
+    const dl1 = dl.length + 1, sumD = c => ({t:'n', f:`SUM(${c}2:${c}${dl1})`, z:'0.00', v: dRows.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0)});
     const ws3 = sheet([['Date', 'Billable hours', 'Non-billable hours', 'Total hours'], ...dRows, [], ['Total', sumD('B'), sumD('C'), sumD('D')]], [18, 15, 18, 13]);
 
     const wb = X.utils.book_new();
@@ -854,7 +863,7 @@ function drawerTime(){
     <div class="three"><div class="field"><label for="x-date">Date</label><input id="x-date" name="date" type="date" value="${esc(date)}" required${dis()}></div>
       <div class="field"><label for="x-st">Start</label><input id="x-st" name="start" type="time" value="${st}"${dis()}></div>
       <div class="field"><label for="x-en">End</label><input id="x-en" name="end" type="time" value="${en}"${dis()}></div></div>
-    <div class="two"><div class="field"><label for="x-dur">Duration</label><input id="x-dur" name="dur" value="${du}" placeholder="1:30 or 1.5"${dis()}><input type="hidden" name="durOrig" value="${du}"></div>
+    <div class="two"><div class="field"><label for="x-dur">Duration</label><input id="x-dur" name="dur" value="${du}" placeholder="1:30 or 1.5"${dis()}><input type="hidden" name="durOrig" value="${du}"><input type="hidden" name="stOrig" value="${st}"><input type="hidden" name="enOrig" value="${en}"><input type="hidden" name="dateOrig" value="${esc(date)}"></div>
       <label class="check" style="align-self:end;padding-bottom:9px"><input type="checkbox" name="billable" ${x.billable?'checked':''}${dis()}> Billable</label></div>
     <div class="hint">Give a start and end time, or just a duration such as 1:30 or 1.5 hours.</div>
     <div class="field"><label for="x-notes">Notes</label><textarea id="x-notes" name="notes" style="min-height:70px"${dis()}>${esc(entryNotes(x))}</textarea></div>
@@ -871,10 +880,15 @@ async function saveTime(){
   const sD = st ? new Date(`${date}T${st}`) : null;
   if (sD) start = sD.toISOString();
   const durChanged = durS !== val(fd,'durOrig');
-  if (sD && en && !(durChanged && dur != null)){ let eD = new Date(`${date}T${en}`); if (eD <= sD) eD = addDays(eD, 1); end = eD.toISOString(); sec = Math.round((eD - sD) / 1000); }
+  const old0 = drawer.id ? findEntry(drawer.id).x : null;
+  const timesSame = old0 && !durChanged && st === val(fd,'stOrig') && en === val(fd,'enOrig') && date === val(fd,'dateOrig');
+  if (timesSame){ start = old0.start || ''; end = old0.end || ''; sec = +old0.sec || 0; }
+  else if (sD && en && !(durChanged && dur != null)){ let eD = new Date(`${date}T${en}`);
+    if (+eD === +sD){ toast('The end time is the same as the start time.'); return; }
+    if (eD < sD) eD = addDays(eD, 1); end = eD.toISOString(); sec = Math.round((eD - sD) / 1000); }
   else if (dur != null){ sec = dur; if (sD) end = new Date(sD.getTime() + sec*1000).toISOString(); }
   if (sec == null){ toast('Enter a duration, or a start and end time.'); return; }
-  if (sec <= 0 || sec > 24*3600){ toast('That entry needs to be between a minute and 24 hours.'); return; }
+  if (!timesSame && (sec <= 0 || sec > 24*3600)){ toast('That entry needs to be between a minute and 24 hours.'); return; }
   const {clientId, client} = clientByName(val(fd,'client'));
   const base = {title: val(fd,'title'), clientId, client, category: val(fd,'category') || 'Other', billable: fd.get('billable') === 'on', notes: String(fd.get('notes')||''), start, end, sec};
   if (!drawer.id){
@@ -1157,7 +1171,7 @@ function viewBoard(){
   <div class="filters">${counts.map(([w,n]) => `<button class="chip" data-act="boardws" data-v="${w}" aria-pressed="${ws===w}">${esc(WS[w])} <span class="mono">${n}</span></button>`).join('')}${grpFilter()}</div>
   <div class="board-wrap"><table class="board"><thead><tr><th>Client · job</th>${cols.map(c => `<th class="${c.cur?'cur':''}">${c.l}</th>`).join('')}</tr></thead><tbody>
   ${rows.map(([jid,j]) => { const m = byJob.get(jid) || new Map();
-    return `<tr><td class="job" data-act="open-job" data-id="${esc(jid)}"><div class="t1">${esc(nice(j.client))}${j.active?'':' <span class="badge s-na">Paused</span>'}</div><div class="t2">${esc(j.title)} · ${esc(FREQ[j.freq]||j.freq)}${j.owner?` · ${esc(j.owner)}`:''}</div></td>
+    return `<tr><td class="job" role="button" tabindex="0" data-act="open-job" data-id="${esc(jid)}"><div class="t1">${esc(nice(j.client))}${j.active?'':' <span class="badge s-na">Paused</span>'}</div><div class="t2">${esc(j.title)} · ${esc(FREQ[j.freq]||j.freq)}${j.owner?` · ${esc(j.owner)}`:''}</div></td>
       ${cols.map(c => `<td class="${c.cur?'cur':''}"><div class="cells">${(m.get(c.k)||[]).sort((a,b)=>(a[1].due||'').localeCompare(b[1].due||'')).map(cell).join('')}</div></td>`).join('')}</tr>`; }).join('') || `<tr><td colspan="6" class="empty">${ui.grp?'No recurring jobs in this workstream for this group.':'No recurring jobs in this workstream yet.'}</td></tr>`}
   </tbody></table></div>
   <div class="legend">${STATUSES.map(s => `<span class="badge s-${SC[s]}">${s}</span>`).join('')}<span>Red outline = overdue. Squares show the due day; “Q” marks a quarter.</span></div>`;
@@ -1188,7 +1202,7 @@ function viewClients(){
   const head = `<thead><tr>${canPick?'<th class="pick"><span class="sr">Select</span></th>':''}<th>Client</th><th>Team (P · S · M)</th><th>Software</th><th class="num">Jobs</th><th class="num">Open</th><th>Next due</th></tr></thead>`;
   const tr = ([id,c]) => { const s = st.get(id) || {open:0,late:0,next:''}; const tm = c.team || {}; const g = groupLabel(c);
     const sub = [grouped ? '' : g, c.partner].filter(Boolean).map(nice).join(' · ');
-    return `<tr data-act="open-client" data-id="${esc(id)}">${canPick?`<td class="pick"><input type="checkbox" data-act="pick" data-id="${esc(id)}" aria-label="Select ${esc(nice(c.name))}" ${picked.has(id)?'checked':''}></td>`:''}<td><div class="t1">${esc(nice(c.name))}${c.active===false?' <span class="badge s-na">Inactive</span>':''}${(n => n ? ` <span class="badge s-wc">${n} info request${n===1?'':'s'} out</span>` : '')(openReqs(id))}</div>${sub?`<div class="t2">${esc(sub)}</div>`:''}</td>
+    return `<tr role="button" tabindex="0" data-act="open-client" data-id="${esc(id)}">${canPick?`<td class="pick"><input type="checkbox" data-act="pick" data-id="${esc(id)}" aria-label="Select ${esc(nice(c.name))}" ${picked.has(id)?'checked':''}></td>`:''}<td><div class="t1">${esc(nice(c.name))}${c.active===false?' <span class="badge s-na">Inactive</span>':''}${(n => n ? ` <span class="badge s-wc">${n} info request${n===1?'':'s'} out</span>` : '')(openReqs(id))}</div>${sub?`<div class="t2">${esc(sub)}</div>`:''}</td>
       <td class="team">${esc(tm.processor||'–')} <span>·</span> ${esc(tm.senior||'–')} <span>·</span> ${esc(tm.manager||'–')}</td>
       <td>${esc(c.software||'')}</td><td class="num">${jc.get(id)||''}</td>
       <td class="num">${s.open||''}${s.late?` <span class="late-n">(${s.late} late)</span>`:''}</td><td class="mono">${s.next?fmtD(s.next):''}</td></tr>`; };
@@ -1315,6 +1329,7 @@ function renderDrawer(){
   const scroll = dRoot.querySelector('.d-body')?.scrollTop || 0;
   dRoot.innerHTML = `<div class="scrim" data-act="close"></div><aside class="drawer" role="dialog" aria-modal="true"${ui.drawerW ? ` style="width:${clampDW(ui.drawerW)}px"` : ''}><div class="d-resize" role="separator" aria-orientation="vertical" aria-label="Resize panel (drag, arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>${html}</aside>`;
   const b = dRoot.querySelector('.d-body'); if (b) b.scrollTop = scroll;
+  const h2 = dRoot.querySelector('.d-head h2'); if (h2){ h2.id = 'd-title'; dRoot.querySelector('.drawer').setAttribute('aria-labelledby', 'd-title'); }
   // Live updates redraw the drawer, so put back anything typed but not yet saved.
   if (drawer.dirty) for (const [k,v] of Object.entries(drawer.dirty)){
     const el = dRoot.querySelector(`[name="${CSS.escape(k)}"]`) || document.getElementById(k); if (!el) continue;
@@ -1373,7 +1388,7 @@ function timeField(id, t){
   return `<div class="field"><span class="lab">Time spent</span>
     <div class="timebox"><span class="tspent big${run?' run':''}" data-tick="${esc(id)}" data-fmt="clock">${fmtClock(elapsed(t))}</span>
       <span class="hint">${t.estMin ? `of ${fmtDur(t.estMin*60)} estimated` : ''}</span><span class="grow"></span>${btns}</div>
-    ${mine.length ? `<div class="mini-list">${mine.map(x => `<div class="mi" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}"><span class="grow mono t2">${fmtD(x.date)}${x.start ? ` · ${hm(new Date(x.start))}${x.end ? `–${hm(new Date(x.end))}` : ''}` : ''}</span><span class="mono">${fmtDur(x.sec)}</span></div>`).join('')}</div>` : ''}
+    ${mine.length ? `<div class="mini-list">${mine.map(x => `<div class="mi" role="button" tabindex="0" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}"><span class="grow mono t2">${fmtD(x.date)}${x.start ? ` · ${hm(new Date(x.start))}${x.end ? `–${hm(new Date(x.end))}` : ''}` : ''}</span><span class="mono">${fmtDur(x.sec)}</span></div>`).join('')}</div>` : ''}
     <div class="hint">${run ? 'Pause adds this session to your timesheet. Finish does that and marks the task Done.' : 'Each timer session goes on your timesheet, where you can edit it.'}</div></div>`;
 }
 function drawerJob(){
@@ -1423,7 +1438,7 @@ function drawerClient(){
   const nextOf = jid => { const ts = [...tasks.values()].filter(t => t.jobId === jid && isOpen(t)).sort((a,b) => (a.due||'').localeCompare(b.due||'')); return ts[0]; };
   return `<div class="d-head"><div class="grow"><div class="eyebrow">${isNew?'New client':'Client'}</div><h2>${isNew?'Add a client':esc(nice(c.name))}</h2>${groupLabel(c)&&!isNew?`<div class="sub">${esc(nice(groupLabel(c)))}</div>`:''}</div><button class="btn ghost small" data-act="close">Close</button></div>
   <form class="d-body" id="clientForm" autocomplete="off">
-    ${isNew ? '' : `<div class="field"><span class="lab">Recurring jobs</span>${cj.length ? `<div class="mini-list">${cj.map(([jid,j]) => { const n = nextOf(jid); return `<div class="mi" data-act="open-job" data-id="${esc(jid)}"><span class="grow"><b>${esc(j.title)}</b><div class="t2">${esc(describeRule(j))}${j.active===false?' · paused':''}</div></span>${n?`<span class="badge s-${SC[n.status]}">${fmtD(n.due)}</span>`:''}</div>`; }).join('')}</div>` : '<div class="hint">No recurring jobs yet.</div>'}
+    ${isNew ? '' : `<div class="field"><span class="lab">Recurring jobs</span>${cj.length ? `<div class="mini-list">${cj.map(([jid,j]) => { const n = nextOf(jid); return `<div class="mi" role="button" tabindex="0" data-act="open-job" data-id="${esc(jid)}"><span class="grow"><b>${esc(j.title)}</b><div class="t2">${esc(describeRule(j))}${j.active===false?' · paused':''}</div></span>${n?`<span class="badge s-${SC[n.status]}">${fmtD(n.due)}</span>`:''}</div>`; }).join('')}</div>` : '<div class="hint">No recurring jobs yet.</div>'}
       ${readOnly?'':`<div><button type="button" class="btn small" data-new="job" data-client="${esc(c.name)}">+ Recurring job</button> <button type="button" class="btn small" data-new="task" data-client="${esc(c.name)}">+ One-off task</button> <button type="button" class="btn small" data-new="time" data-client="${esc(c.name)}">+ Log time</button></div>`}
       ${clientTime(drawer.id)}</div>
       ${ct.length ? `<div class="field"><span class="lab">Open tasks</span><div class="mini-list">${ct.slice(0,12).map(([id,t]) => `<div class="mi" data-act="open-task" data-id="${esc(id)}"><span class="grow">${esc(t.title)} ${t.period?`<span class="mono t2">${esc(t.period)}</span>`:''}<div class="t2">due ${t.due?fmtD(t.due):'—'}</div></span><span class="badge s-${SC[t.status]}">${esc(t.status)}</span></div>`).join('')}</div></div>` : ''}
@@ -1612,7 +1627,7 @@ async function saveJob(){
     toast(`Created ${title}. This period's task is on your board.`); closeDrawer(); ensureInstances();
   } else {
     const jid = drawer.id, old = jobs.get(jid) || {};
-    const ruleChanged = JSON.stringify(old.due) !== JSON.stringify(due) || old.freq !== freq;
+    const ruleChanged = JSON.stringify(old.due) !== JSON.stringify(due) || old.freq !== freq || !!old.rollWeekend !== !!data.rollWeekend;
     const patch = {...data}; if (ruleChanged) patch.from = iso(today());
     // Turning a paused job back on starts from today rather than back-filling missed periods.
     if (old.active === false && data.active) patch.from = iso(today());
@@ -1757,8 +1772,9 @@ async function backupToDrive(opts = {}){
 }
 let autoTried = false, autoWaiting = false;
 async function maybeAutoBackup(){
-  if (!HAS_DRIVE) return;
   if (autoTried || !loaded || dbMissing || readOnly || canWrite === false || settings.autoBackup === false) return;
+  // Without Drive the board lives only in this browser: ask for a downloaded copy once a week.
+  if (!HAS_DRIVE){ let dl = 0; try { dl = +localStorage.getItem('wb-last-dl') || 0; } catch {} if (tasks.size && Date.now() - dl >= 7 * 864e5) downloadDueBar(); return; }
   const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : 0;
   if (Date.now() - last < AUTO_DAYS * 864e5) return;
   autoTried = true;
@@ -1778,7 +1794,17 @@ function backupDueBar(){
   const [now, later] = bar.querySelectorAll('button');
   now.onclick = async () => { now.disabled = true; now.textContent = 'Backing up…'; const ok = await backupToDrive(); if (ok) bar.remove(); else { now.disabled = false; now.textContent = 'Try again'; } };
   later.onclick = () => { dueLaterUntil = Date.now() + 4 * 3600e3; bar.remove(); };
-  document.body.appendChild(bar);
+  document.body.prepend(bar);
+}
+function downloadDueBar(){
+  if (Date.now() < dueLaterUntil || document.querySelector('.wb-due')) return;
+  const bar = document.createElement('div');
+  bar.className = 'wb-due'; bar.setAttribute('role', 'status');
+  bar.innerHTML = '<span>Your board is only saved in this browser. Download a backup copy this week.</span><button class="btn primary small" type="button">Download a copy</button><button class="btn ghost small" type="button">Later</button>';
+  const [now, later] = bar.querySelectorAll('button');
+  now.onclick = () => backupDownload();
+  later.onclick = () => { dueLaterUntil = Date.now() + 24 * 3600e3; bar.remove(); };
+  document.body.prepend(bar);
 }
 // A board left open all day still backs up: check again every hour.
 if (window.WB_STANDALONE) setInterval(() => { autoTried = false; maybeAutoBackup(); }, 3600e3);
@@ -1835,15 +1861,19 @@ async function rsRun(force){
     if (!(await backupToDrive({prefix: 'Work Board before restore'}))){ rsSet({stage: 'nosafe', data, name}); return; }
   }
   restoring = true; let done = 0, fail = 0, plan = [];
+  const runId = runningId(), runTask = runId ? {...tasks.get(runId)} : null;
   const msg = t => { const el = document.getElementById('rsMsg'); if (el) el.textContent = t; else rsSet({stage: 'running', msg: t}); };
   rsSet({stage: 'running', msg: 'Working out what to change…'});
   try {
     for (const col of ['clients', 'jobs', 'tasks', 'notes', 'time']){
       // An older backup made before the timesheet existed leaves the timesheet as it is.
-      if (col === 'time' && !data.time) continue;
+      if ((col === 'time' || col === 'notes') && !data[col]) continue;
       const want = data[col] || {}, have = {};
       (await db.collection(col).get()).docs.forEach(d => have[d.id] = d.data());
-      for (const [id, doc] of Object.entries(want)) if (!have[id] || !same(have[id], doc)) plan.push(['set', col, id, doc]);
+      for (let [id, doc] of Object.entries(want)){
+        if (col === 'tasks' && doc && doc.timerStart) doc = {...doc, timerStart: id === runId ? runTask.timerStart : ''};
+        else if (col === 'tasks' && id === runId && doc) doc = {...doc, timerStart: runTask.timerStart};
+        if (!have[id] || !same(have[id], doc)) plan.push(['set', col, id, doc]); }
       for (const id of Object.keys(have)) if (!(id in want)) plan.push(['del', col, id]);
     }
     if (data.settings && typeof data.settings === 'object'){
@@ -1860,6 +1890,9 @@ async function rsRun(force){
     }
   } catch (e) { console.error(e); fail = fail || 1; }
   finally { restoring = false; }
+  timeOld.clear(); oldAsked.clear();
+  // The running task isn't in the backup: log its time so far rather than lose it.
+  if (runTask && !(data.tasks || {})[runId]){ const r = stopTask(runId, runTask); if (r) await logPieces(r.pieces); }
   rsSet(fail ? {stage: 'done', err: true, msg: `${fail} of ${plan.length} changes didn’t save. Run the restore again to finish it.`}
              : {stage: 'done', msg: plan.length ? `Board restored from “${name}” (${plan.length} change${plan.length===1?'':'s'}).` : 'The board already matches that backup. Nothing changed.'});
   toast(fail ? 'Restore didn’t fully finish' : 'Board restored');
@@ -1873,6 +1906,8 @@ async function backupDownload(){
     const data = await backupData();
     await dl.save({filename: `Work Board backup ${stamp()}.json`, data: JSON.stringify(data)});
     bkMsg('Backup file saved.');
+    try { localStorage.setItem('wb-last-dl', String(Date.now())); } catch {}
+    document.querySelectorAll('.wb-due').forEach(b => b.remove());
   } catch (e) { bkMsg(e && e.code === 'declined' ? 'Download cancelled.' : 'The download didn’t work. Try again.', true); }
   finally { bkBusy(false); }
 }
@@ -1973,7 +2008,7 @@ document.addEventListener('click', e => {
     case 'save-settings': saveSettings(); break;
     case 'ask-del': drawer.confirmDel = true; renderDrawer(); break;
     case 'cancel-del': drawer.confirmDel = false; renderDrawer(); break;
-    case 'del-task': { const did = drawer.id; closeDrawer(); del('tasks', did).then(() => toast('Task deleted')).catch(()=>{}); break; }
+    case 'del-task': { const did = drawer.id; closeDrawer(); ((tasks.get(did) || {}).timerStart ? pauseTimer(did, {quiet:true}) : Promise.resolve()).then(() => del('tasks', did)).then(() => toast('Task deleted')).catch(()=>{}); break; }
   }
 });
 document.addEventListener('change', e => {
@@ -2003,7 +2038,7 @@ function uiField(el){ const u = el.closest && el.closest('[data-ui]'); if (!u) r
   if (u.dataset.ui === 'tsCat'){ ui.tsBill = u.value === 'Client work'; const b = document.getElementById('ts-bill'); if (b) b.checked = ui.tsBill; }
   persistUi(); return true; }
 document.addEventListener('input', e => { if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value; if (uiField(e.target)) return; markDirty(e.target); const a = e.target.closest('[data-act="q"]'); if (a){ ui[a.dataset.key] = a.value; qUpdate(); } });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest && e.target.closest('.note-quick') && e.target.tagName === 'INPUT'){ e.preventDefault(); addNoteFromView(); return; }
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"][data-act]')){ e.preventDefault(); e.target.click(); return; } if (e.key === 'Enter' && e.target.closest && e.target.closest('.note-quick') && e.target.tagName === 'INPUT'){ e.preventDefault(); addNoteFromView(); return; }
   if (e.key === 'Enter' && e.target.closest && e.target.closest('.ts-start') && e.target.tagName === 'INPUT'){ e.preventDefault(); tsStart(); return; } if (e.key === 'Enter' && e.target.matches('label[for="rsFile"]')){ e.preventDefault(); document.getElementById('rsFile').click(); return; } if (e.key === 'Escape'){ if (drawer) closeDrawer(); else if (selMode){ selMode = false; tPicked.clear(); render(true); } document.getElementById('newMenu').hidden = true; } });
 document.addEventListener('submit', e => e.preventDefault());
 document.addEventListener('visibilitychange', () => { if (!document.hidden && loaded){ render(); ensureInstances(); } });
