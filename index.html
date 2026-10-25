@@ -177,6 +177,9 @@ h2{font:650 17px/1.2 var(--f-display);margin:0;letter-spacing:-.005em}
 .tspent{font-family:var(--f-mono);font-size:12px;color:var(--ink)}
 .tspent.run{color:var(--accent);font-weight:600}
 .timerbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--accent);box-shadow:var(--shadow);border-radius:14px;padding:8px 10px 8px 14px;width:min(600px,calc(100% - 32px))}
+.timerbar .sess{flex:1.4;min-width:120px;font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
+@media (max-width:640px){.timerbar .sess{display:none}}
+.sess-n{font-family:var(--f-body)}
 .timerbar .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;cursor:pointer}
 .timerbar .clock{font-family:var(--f-mono);font-weight:600;font-size:16px;color:var(--accent)}
 .timerbar .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--late)}
@@ -558,7 +561,7 @@ function setStatus(id, status, opts = {}){
   if (status === 'Done' && (t.steps||[]).length) patch.steps = t.steps.map(s => ({...s, d:true}));
   // Closing a task stops its timer and logs the time; Undo takes the entry back off and starts the timer again.
   let logged = null;
-  if (!OPEN.includes(status) && t.timerStart){ logged = stopTask(id, t); Object.assign(patch, logged.patch); Object.assign(prev, {timerStart: t.timerStart, timeSec: +t.timeSec || 0}); logPieces(logged.pieces); }
+  if (!OPEN.includes(status) && t.timerStart){ logged = stopTask(id, t); Object.assign(patch, logged.patch); Object.assign(prev, {timerStart: t.timerStart, timeSec: +t.timeSec || 0, sessionNote: t.sessionNote || ''}); logPieces(logged.pieces); }
   if (logged) tasks.set(id, {...t, ...patch});
   upd('tasks', id, patch).then(() => { if (status === 'Done' || status === 'Not applicable') ensureInstances(); }).catch(()=>{});
   const undo = () => { upd('tasks', id, prev).catch(()=>{}); if (logged) unlogPieces(logged.pieces); };
@@ -607,12 +610,28 @@ function adjustTask(taskId, delta){
   upd('tasks', taskId, {timeSec: Math.max(0, (+t.timeSec || 0) + delta)}).catch(()=>{});
 }
 // Closing a task's running session: the task keeps a running total, the timesheet gets the entry.
-// The task's note becomes the timesheet narration for each timer session, including text typed
-// in the open task panel but not saved yet.
+// Each session's narration is its own session note (typed in the timer bar or the task panel, saved or
+// not yet). Without one it falls back to the task's note, including unsaved text in the open panel.
+// The last text typed wins over a stored copy that a slower save may not have reached yet.
+const sessLatest = new Map();
+const sessText = (id, stored) => sessLatest.has(id) ? sessLatest.get(id) : (stored || '');
+function sessNoteNow(id, t){ return String(sessText(id, t.sessionNote)).trim(); }
 function taskNarration(id, t){
+  const s = sessNoteNow(id, t); if (s) return s;
   const el = drawer && drawer.type === 'task' && drawer.id === id ? dRoot.querySelector('#taskForm [name="notes"]') : null;
   return String((el ? el.value : t.notes) || '').trim();
 }
+// Session notes save as you type; the bar and the panel show the same text.
+const sessSave = new Map();
+function onSessNote(el){
+  const id = el.dataset.sess, v = el.value; sessLatest.set(id, v);
+  document.querySelectorAll(`[data-sess="${CSS.escape(id)}"]`).forEach(o => { if (o !== el) o.value = v; });
+  if (id === 'free'){ if (freeTimer){ freeTimer.notes = v; clearTimeout(sessSave.get(id)); sessSave.set(id, setTimeout(() => upd('settings', 'timer', {notes: v}).catch(()=>{}), 600)); } return; }
+  const t = tasks.get(id); if (!t) return;
+  tasks.set(id, {...t, sessionNote: v});
+  clearTimeout(sessSave.get(id)); sessSave.set(id, setTimeout(() => upd('tasks', id, {sessionNote: v}).catch(()=>{}), 600));
+}
+function clearSessBoxes(id){ clearTimeout(sessSave.get(id)); sessLatest.delete(id); document.querySelectorAll(`[data-sess="${CSS.escape(id)}"]`).forEach(o => { o.value = ''; }); }
 // Entries logged before narration was copied fall back to their task's note.
 const entryNotes = x => x.notes || (x.taskId && tasks.has(x.taskId) ? String(tasks.get(x.taskId).notes || '').trim() : '');
 // A session that runs past midnight is logged as one entry per day.
@@ -631,7 +650,8 @@ function stopTask(id, t){
   const pieces = splitDays(t.timerStart, e, {taskId: id, clientId: t.clientId || '', client: t.client || '',
     title: t.title + (t.period ? ` · ${t.period}` : ''), category: t.ws === 'admin' ? 'Admin' : 'Client work', billable: t.ws !== 'admin' && !!t.client,
     notes: taskNarration(id, t), source: 'timer', by: meName()});
-  return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec}, pieces, sec};
+  clearSessBoxes(id);
+  return {patch: {timerStart: '', timeSec: (+t.timeSec || 0) + sec, sessionNote: ''}, pieces, sec};
 }
 async function startTimer(id){
   const t = tasks.get(id); if (!t || t.timerStart || readOnly) return;
@@ -668,8 +688,9 @@ async function stopFree(opts = {}){
   const e = nowIso(), sec = Math.max(0, Math.round((Date.parse(e) - Date.parse(f.start)) / 1000));
   freeTimer = null; render();
   put('settings', 'timer', {start: ''}).catch(()=>{});
+  const fnote = String(sessText('free', f.notes)).trim(); clearSessBoxes('free');
   const pieces = splitDays(f.start, e, {taskId: '', clientId: f.clientId || '', client: f.client || '', title: f.title || '',
-    category: f.category || 'Other', billable: !!f.billable, notes: f.notes || '', source: 'timer', by: meName()});
+    category: f.category || 'Other', billable: !!f.billable, notes: fnote, source: 'timer', by: meName()});
   await logPieces(pieces);
   if (!opts.quiet) toast(`Logged ${fmtDur(sec)} to your timesheet`, () => unlogPieces(pieces));
 }
@@ -695,16 +716,21 @@ function setFocus(ids, on, quiet){
 const timerRoot = document.getElementById('timerRoot');
 function renderTimer(){
   const id = loaded && !dbMissing ? runningId() : null, free = loaded && !dbMissing && !id ? freeTimer : null;
+  const typing = document.activeElement && timerRoot.contains(document.activeElement) && document.activeElement.dataset.sess;
+  if (typing && typing === (id || (free ? 'free' : ''))) return;
+  const sessBox = (k, v) => readOnly ? '' : `<input class="sess" data-sess="${esc(k)}" value="${esc(v || '')}" placeholder="Note for this session" aria-label="Note for this session" maxlength="500">`;
   document.body.classList.toggle('has-timer', !!(id || free));
   if (id){
     const t = tasks.get(id);
     timerRoot.innerHTML = `<div class="timerbar" role="region" aria-label="Running timer"><span class="dot" aria-hidden="true"></span>
       <span class="who" data-act="open-task" data-id="${esc(id)}" title="Open task"><b>${esc(nice(t.client) || 'General')}</b> · ${esc(t.title)}${t.period?` · ${esc(t.period)}`:''}</span>
+      ${sessBox(id, sessText(id, t.sessionNote))}
       <span class="clock" data-tick="${esc(id)}" data-fmt="clock">${fmtClock(elapsed(t))}</span>
       ${readOnly ? '' : `<button class="btn small" data-act="tpause" data-id="${esc(id)}">Pause</button><button class="btn primary small" data-act="tfinish" data-id="${esc(id)}">Finish</button>`}</div>`;
   } else if (free){
     timerRoot.innerHTML = `<div class="timerbar" role="region" aria-label="Running timer"><span class="dot" aria-hidden="true"></span>
       <span class="who" data-act="go-time" title="Open timesheet"><b>${esc(nice(free.client) || free.category || 'Timer')}</b> · ${esc(free.title || 'No description')}</span>
+      ${sessBox('free', sessText('free', free.notes))}
       <span class="clock" data-tick="free" data-fmt="clock">${fmtClock(freeSec())}</span>
       ${readOnly ? '' : `<button class="btn primary small" data-act="fstop">Stop</button>`}</div>`;
   } else timerRoot.innerHTML = '';
@@ -1402,8 +1428,9 @@ function timeField(id, t){
   return `<div class="field"><span class="lab">Time spent</span>
     <div class="timebox"><span class="tspent big${run?' run':''}" data-tick="${esc(id)}" data-fmt="clock">${fmtClock(elapsed(t))}</span>
       <span class="hint">${t.estMin ? `of ${fmtDur(t.estMin*60)} estimated` : ''}</span><span class="grow"></span>${btns}</div>
-    ${mine.length ? `<div class="mini-list">${mine.map(x => `<div class="mi" role="button" tabindex="0" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}"><span class="grow mono t2">${fmtD(x.date)}${x.start ? ` · ${hm(new Date(x.start))}${x.end ? `–${hm(new Date(x.end))}` : ''}` : ''}</span><span class="mono">${fmtDur(x.sec)}</span></div>`).join('')}</div>` : ''}
-    <div class="hint">${run ? 'Pause adds this session to your timesheet. Finish does that and marks the task Done.' : 'Each timer session goes on your timesheet, where you can edit it.'}</div></div>`;
+    ${mine.length ? `<div class="mini-list">${mine.map(x => `<div class="mi" role="button" tabindex="0" data-act="open-time" data-id="${esc(x.date + '|' + x.id)}"><span class="grow mono t2">${fmtD(x.date)}${x.start ? ` · ${hm(new Date(x.start))}${x.end ? `–${hm(new Date(x.end))}` : ''}` : ''}${x.notes ? `<span class="sess-n"> · ${esc(clip(x.notes, 60))}</span>` : ''}</span><span class="mono">${fmtDur(x.sec)}</span></div>`).join('')}</div>` : ''}
+    ${open && !readOnly ? `<label class="lab" for="sess-${esc(id)}" style="margin-top:10px;display:block">${run ? 'Note for this session' : 'Note for your next session'}</label><textarea id="sess-${esc(id)}" data-sess="${esc(id)}" rows="2" placeholder="What you're doing in this session, e.g. Bank rec to 30 Sep">${esc(sessText(id, t.sessionNote))}</textarea>` : ''}
+    <div class="hint">${run ? 'Pause adds this session to your timesheet with its own note, then clears the note for the next session. Finish does the same and marks the task Done.' : 'Each timer session goes on your timesheet with its session note, or the task note if you leave it blank.'}</div></div>`;
 }
 function drawerJob(){
   const isNew = !drawer.id;
@@ -2216,6 +2243,7 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.sess) return;
   if (e.target.id === 'rsFile'){ const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
     f.text().then(t => rsCheck(JSON.parse(t), f.name)).catch(() => rsSet({stage: 'error', msg: 'That file isn’t a Work Board backup.'})); return; }
   if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value;
@@ -2241,7 +2269,7 @@ function uiField(el){ const u = el.closest && el.closest('[data-ui]'); if (!u) r
   ui[u.dataset.ui] = u.type === 'checkbox' ? u.checked : u.value;
   if (u.dataset.ui === 'tsCat'){ ui.tsBill = u.value === 'Client work'; const b = document.getElementById('ts-bill'); if (b) b.checked = ui.tsBill; }
   persistUi(); return true; }
-document.addEventListener('input', e => { if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value; if (uiField(e.target)) return; markDirty(e.target); const a = e.target.closest('[data-act="q"]'); if (a){ ui[a.dataset.key] = a.value; qUpdate(); } });
+document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.sess){ onSessNote(e.target); return; } if (e.target.id && e.target.id.startsWith('ne-')) neDraft[e.target.id] = e.target.value; if (uiField(e.target)) return; markDirty(e.target); const a = e.target.closest('[data-act="q"]'); if (a){ ui[a.dataset.key] = a.value; qUpdate(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'ask-text'){ e.preventDefault(); askSend(e.target.value); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"][data-act]')){ e.preventDefault(); e.target.click(); return; } if (e.key === 'Enter' && e.target.closest && e.target.closest('.note-quick') && e.target.tagName === 'INPUT'){ e.preventDefault(); addNoteFromView(); return; }
   if (e.key === 'Enter' && e.target.closest && e.target.closest('.ts-start') && e.target.tagName === 'INPUT'){ e.preventDefault(); tsStart(); return; } if (e.key === 'Enter' && e.target.matches('label[for="rsFile"]')){ e.preventDefault(); document.getElementById('rsFile').click(); return; } if (e.key === 'Escape'){ if (drawer) closeDrawer(); else if (selMode){ selMode = false; tPicked.clear(); render(true); } document.getElementById('newMenu').hidden = true; } });
 document.addEventListener('submit', e => e.preventDefault());
