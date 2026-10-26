@@ -361,6 +361,56 @@ body.resizing{user-select:none;cursor:ew-resize}
 @container (max-width:460px){.two,.three{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.4}}}
 
+
+/* Calendar */
+.cal-nav{display:flex;gap:6px}
+.cal-wrap{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:16px;align-items:start}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--line);gap:1px}
+.cal-wd{background:var(--sunk);padding:6px 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cal-d{background:var(--surface);min-height:118px;padding:4px 5px 6px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cal-d.we{background:color-mix(in srgb,var(--surface) 70%,var(--sunk))}
+.cal-d.out{opacity:.55}
+.cal-d.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal-d.drop-on{background:var(--accent-soft)}
+.cal-dh{display:flex;align-items:center;justify-content:space-between}
+.cal-n{border:0;background:none;font:600 13px/1 var(--f-mono);color:var(--ink);padding:4px 5px;border-radius:7px;cursor:pointer}
+.cal-d.today .cal-n{background:var(--accent);color:var(--accent-ink)}
+.cal-add{border:0;background:none;color:var(--muted);font-size:16px;line-height:1;padding:2px 6px;border-radius:6px;opacity:0;cursor:pointer}
+.cal-d:hover .cal-add,.cal-add:focus-visible{opacity:1}
+.cal-items{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cal-dl,.cal-t{display:block;width:100%;text-align:left;font-size:11px;line-height:1.3;padding:3px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cal-dl{background:var(--sunk);color:var(--muted)}
+.cal-dl .tag,.cal-agenda .tag{font:600 9.5px/1 var(--f-body);text-transform:uppercase;letter-spacing:.04em;padding:2px 4px;border-radius:4px;margin-right:4px;background:var(--surface);color:var(--muted);border:1px solid var(--line)}
+.cal-dl.state .tag,.cal-agenda .tag.state{color:var(--soon)}
+.cal-t{border:1px solid var(--line);border-left:3px solid var(--ns-fg);background:var(--surface);color:var(--ink);cursor:pointer}
+.cal-t b{font-weight:600}
+.cal-t.s-ip{border-left-color:var(--ip-fg)}.cal-t.s-rv{border-left-color:var(--rv-fg)}.cal-t.s-wc{border-left-color:var(--wc-fg)}.cal-t.s-bl{border-left-color:var(--bl-fg)}.cal-t.s-dn{border-left-color:var(--dn-fg)}.cal-t.s-na{border-left-color:var(--na-fg)}
+.cal-t.late{background:color-mix(in srgb,var(--late) 10%,var(--surface));border-color:color-mix(in srgb,var(--late) 40%,var(--line))}
+.cal-t.closed{opacity:.55;text-decoration:line-through}
+.cal-t.plan{border-style:dashed;border-left-style:solid;background:var(--accent-soft)}
+.cal-t .pl{font:600 9.5px/1 var(--f-body);text-transform:uppercase;color:var(--accent);margin-right:4px}
+.cal-t[draggable="true"]{cursor:grab}
+.cal-more{border:0;background:none;color:var(--accent);font-size:12px;text-align:left;padding:1px 6px;cursor:pointer}
+.cal-dots{display:none}
+.on-narrow{display:none}
+@media (max-width:720px),(pointer:coarse){.on-wide{display:none}.on-narrow{display:inline}}
+.cal-agenda{margin-top:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.cal-agenda h2{font-size:16px;margin:0 0 4px}
+.ag-row{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0;border-top:1px solid var(--line)}
+.ag-row:first-of-type{border-top:0}
+.ag-row .grow{flex:1;min-width:0}.ag-t{text-align:left;color:var(--ink);text-decoration:none}
+.cal-agenda .tag.due{color:var(--ink)}.cal-agenda .tag.plan{color:var(--accent)}
+.cal-tray{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;position:sticky;top:72px;max-height:calc(100vh - 100px);display:flex;flex-direction:column;gap:6px}
+.cal-tray h2{font-size:15px;margin:0}
+.cal-tray.drop-on{background:var(--accent-soft)}
+.tray-list{overflow:auto;display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.tray-t{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:6px 8px;font-size:12.5px;cursor:grab;color:var(--ink)}
+.tray-t span{color:var(--muted)}
+@media (max-width:1000px){.cal-wrap{grid-template-columns:minmax(0,1fr)}.cal-tray{position:static;max-height:none}.tray-list{max-height:260px}}
+@media (max-width:720px){.cal-d{min-height:54px;padding:3px}.cal-items{display:none}.cal-dots{display:flex;flex-wrap:wrap;gap:3px;padding:0 4px}
+  .cal-dots .dot{width:6px;height:6px;border-radius:50%;background:var(--ns-fg)}.cal-dots .dot.ato,.cal-dots .dot.state{background:var(--muted);opacity:.5}.cal-dots .dot.plan{background:var(--accent)}.cal-dots .dot.late{background:var(--late)}.cal-dots .dot.closed{opacity:.35}
+  .cal-wd{padding:5px 2px;text-align:center;font-size:10.5px}.cal-n{width:100%;padding:5px 0}.cal-add{display:none}.cal-dh{justify-content:center}
+  .ag-row{flex-wrap:wrap}.ag-row .pill{margin-left:auto}}
 /* Ask */
 .ask-body{display:flex;flex-direction:column;gap:12px}
 .ask-sugg{display:flex;flex-wrap:wrap;gap:8px}
@@ -385,6 +435,7 @@ body.resizing{user-select:none;cursor:ew-resize}
       <button data-view="all">All tasks</button>
       <button data-view="notes">Notes</button>
       <button data-view="time">Timesheet</button>
+      <button data-view="calendar">Calendar</button>
       <button data-view="deadlines">Deadlines</button>
     </nav>
     <div class="top-actions">
@@ -1051,7 +1102,7 @@ function render(force){
     app.innerHTML = `<div class="empty"><h2>Nothing on the board yet</h2><p>Add a client, then a recurring job such as a monthly BAS. Each period's task appears here with its due date.</p><p><button class="btn primary" data-new="job">Add a recurring job</button></p>${window.WB_STANDALONE ? `<p class="hint">Moving your board across? Open Settings, then under Restore choose the backup file you downloaded.</p><p><button class="btn" data-open-settings>Open Settings</button></p>` : ''}</div>`;
     return;
   }
-  const v = {today:viewToday, board:viewBoard, clients:viewClients, all:viewAll, notes:viewNotes, time:viewTime, deadlines:viewDeadlines}[ui.view] || viewToday;
+  const v = {today:viewToday, board:viewBoard, clients:viewClients, all:viewAll, notes:viewNotes, time:viewTime, deadlines:viewDeadlines, calendar:viewCalendar}[ui.view] || viewToday;
   const fa = document.activeElement;
   const keepFocus = fa && app.contains(fa) && fa.id && fa.tagName !== 'SELECT' ? fa.id : null;
   const selStart = keepFocus ? document.activeElement.selectionStart : null;
@@ -1311,6 +1362,102 @@ function viewAll(){
 
 // Deadlines view
 function nextYearly(m, d, roll_=true){ const t = today(); let x = new Date(t.getFullYear(), m-1, d, 12); if (roll(x,roll_) < t) x = new Date(t.getFullYear()+1, m-1, d, 12); return roll(x, roll_); }
+// ---------- calendar ----------
+// A month grid with ATO and state deadlines, tasks on their due dates, and tasks planned for a day
+// (task.plan, YYYY-MM-DD). Dragging a task onto a day plans it; due dates never move from here.
+function statDeadlines(sI, eI){
+  const out = [], s = D(sI), e = D(eI), add = (y, m, d, label, kind, info) => { const x = roll(new Date(y, m-1, d, 12), true), k = iso(x); if (k >= sI && k <= eI) out.push({date: k, label, kind, info}); };
+  for (let y = s.getFullYear(); y <= e.getFullYear(); y++){
+    for (let m = 1; m <= 12; m++){
+      add(y, m, 21, 'Monthly BAS / IAS', 'ato', 'GST, PAYG withholding and instalments for monthly lodgers: 21st of the following month.');
+      if (m !== 7) add(y, m, 7, 'Payroll tax return', 'state', 'Monthly payroll tax return and payment: 7th of the following month (June is covered by the annual reconciliation).');
+    }
+    for (const [m, d, q] of [[10,28,'Sep'],[2,28,'Dec'],[4,28,'Mar'],[7,28,'Jun']]) add(y, m, d, `Quarterly BAS (${q} qtr)`, 'ato', `Quarterly BAS and PAYG instalment for the ${q} quarter, self-lodgers.`);
+    for (const [m, d, q] of [[11,25,'Sep'],[5,26,'Mar'],[8,25,'Jun']]) add(y, m, d, `Quarterly BAS, agent (${q} qtr)`, 'ato', `Agent lodgment program date for the ${q} quarter BAS (electronic lodgment).`);
+    add(y, 7, 14, 'STP finalisation', 'ato', 'Single Touch Payroll finalisation for the financial year: 14 July.');
+    add(y, 7, 21, 'Payroll tax annual reconciliation', 'state', 'Annual reconciliation: 21 July in most states (NSW, SA and ACT: 28 July).');
+    add(y, 7, 28, 'Payroll tax annual (NSW, SA, ACT)', 'state', 'Annual reconciliation for NSW, SA and the ACT.');
+    add(y, 8, 28, 'TPAR', 'ato', 'Taxable payments annual report: 28 August.');
+    add(y, 5, 21, 'FBT return', 'ato', 'FBT return and payment, self-lodgers: 21 May.');
+    add(y, 6, 25, 'FBT return, agent', 'ato', 'FBT return lodged electronically by a tax agent: 25 June.');
+    add(y, 10, 31, 'Income tax, self-lodgers', 'ato', 'Individual and sole trader returns lodged without an agent: 31 October.');
+    add(y, 5, 15, 'Income tax, agent program', 'ato', 'Most returns on the tax agent lodgment program: 15 May.');
+  }
+  return out;
+}
+const calShown = k => !(ui.calOff || ['done']).includes(k); // done tasks start hidden
+function calItems(sI, eI){
+  const by = new Map(), put_ = (d, x) => { if (!by.has(d)) by.set(d, []); by.get(d).push(x); };
+  if (calShown('dl')) for (const x of statDeadlines(sI, eI)) put_(x.date, {type: 'dl', ...x});
+  for (const [id, t] of tasks){
+    const open = isOpen(t); if (!open && !calShown('done')) continue;
+    if (ui.mine && !isMine(t)) continue;
+    if (calShown('due') && t.due && t.due >= sI && t.due <= eI) put_(t.due, {type: 'due', id, t});
+    if (calShown('plan') && t.plan && open && t.plan >= sI && t.plan <= eI && t.plan !== t.due) put_(t.plan, {type: 'plan', id, t});
+  }
+  const rank = {dl: 0, due: 1, plan: 2};
+  for (const list of by.values()) list.sort((a, b) => rank[a.type] - rank[b.type] || (a.t && b.t ? (isOpen(b.t) - isOpen(a.t)) || nice(a.t.client).localeCompare(nice(b.t.client)) : 0));
+  return by;
+}
+function calChip(x, ti){
+  if (x.type === 'dl') return `<div class="cal-dl ${x.kind}" title="${esc(x.info)}"><span class="tag">${x.kind === 'ato' ? 'ATO' : 'State'}</span>${esc(x.label)}</div>`;
+  const t = x.t, open = isOpen(t), late = open && x.type === 'due' && t.due < ti;
+  const label = `${nice(t.client) || 'General'} · ${t.title}${t.period ? ` · ${t.period}` : ''}`;
+  return `<button type="button" class="cal-t ${x.type}${open ? '' : ' closed'}${late ? ' late' : ''} s-${SC[t.status] || 'ns'}" data-act="open-task" data-id="${esc(x.id)}" draggable="${open && !readOnly}" data-drag="${esc(x.id)}" title="${esc(label)} · ${esc(t.status)}${x.type === 'plan' ? ` · planned, due ${t.due ? fmtD(t.due) : 'no date'}` : ''}">${x.type === 'plan' ? '<span class="pl">Plan</span>' : ''}<b>${esc(nice(t.client) || 'General')}</b> ${esc(t.title)}</button>`;
+}
+function viewCalendar(){
+  const t0 = today(), ti = iso(t0);
+  const [cy, cm] = (ui.calMonth || ti.slice(0, 7)).split('-').map(Number);
+  const first = new Date(cy, cm - 1, 1, 12), start = addDays(first, -((first.getDay() + 6) % 7));
+  const last = new Date(cy, cm, 0, 12), weeks = Math.ceil((dayDiff(last, start) + 1) / 7), end = addDays(start, weeks * 7 - 1);
+  const sI = iso(start), eI = iso(end), items = calItems(sI, eI);
+  const sel = ui.calSel && ui.calSel >= sI && ui.calSel <= eI ? ui.calSel : (ti >= iso(first) && ti <= iso(last) ? ti : iso(first));
+  const cells = [];
+  for (let i = 0; i < weeks * 7; i++){
+    const d = addDays(start, i), k = iso(d), list = items.get(k) || [], inM = d.getMonth() === cm - 1;
+    const shown = list.slice(0, 4), more = list.length - shown.length;
+    const dots = list.slice(0, 6).map(x => `<i class="dot ${x.type === 'dl' ? x.kind : x.type}${x.t && !isOpen(x.t) ? ' closed' : ''}${x.type === 'due' && x.t && isOpen(x.t) && x.t.due < ti ? ' late' : ''}"></i>`).join('');
+    cells.push(`<div class="cal-d${inM ? '' : ' out'}${k === ti ? ' today' : ''}${k === sel ? ' sel' : ''}${d.getDay() % 6 === 0 ? ' we' : ''}" data-day="${k}">
+      <div class="cal-dh"><button type="button" class="cal-n" data-act="cal-sel" data-id="${k}" aria-label="${esc(D(k).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}, ${list.length} item${list.length === 1 ? '' : 's'}">${d.getDate()}</button>${readOnly ? '' : `<button type="button" class="cal-add" data-act="cal-new" data-id="${k}" title="Add a task due this day" aria-label="Add a task due ${fmtD(k)}">+</button>`}</div>
+      <div class="cal-items">${shown.map(x => calChip(x, ti)).join('')}${more > 0 ? `<button type="button" class="cal-more" data-act="cal-sel" data-id="${k}">+${more} more</button>` : ''}</div>
+      <div class="cal-dots" aria-hidden="true">${dots}</div></div>`);
+  }
+  const selList = items.get(sel) || [];
+  const agenda = `<div class="cal-agenda"><h2>${esc(D(sel).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}</h2>
+    ${selList.length ? selList.map(x => x.type === 'dl'
+      ? `<div class="ag-row dl"><span class="tag ${x.kind}">${x.kind === 'ato' ? 'ATO' : 'State'}</span><div class="grow"><b>${esc(x.label)}</b><div class="t2">${esc(x.info)}</div></div></div>`
+      : `<div class="ag-row"><span class="tag ${x.type}">${x.type === 'plan' ? 'Planned' : 'Due'}</span><button type="button" class="grow linkish ag-t" data-act="open-task" data-id="${esc(x.id)}"><b>${esc(nice(x.t.client) || 'General')}</b> · ${esc(x.t.title)}${x.t.period ? ` · ${esc(x.t.period)}` : ''}</button>${statusSelect(x.id, x.t.status)}${x.type === 'plan' && !readOnly ? `<button type="button" class="btn ghost small" data-act="cal-unplan" data-id="${esc(x.id)}">Unplan</button>` : ''}</div>`).join('')
+      : '<div class="hint">Nothing on this day.</div>'}
+    ${readOnly ? '' : `<button type="button" class="btn small" data-act="cal-new" data-id="${sel}">+ Task due this day</button>`}</div>`;
+  const pool = [...tasks].filter(([, t]) => isOpen(t) && !t.plan && (!ui.mine || isMine(t)) && (!t.due || t.due <= eI)).sort(byDue).slice(0, 60);
+  const tray = readOnly ? '' : `<aside class="cal-tray" data-day="">
+    <h2>To plan</h2><div class="hint"><span class="on-wide">Drag a task onto a day to plan when you'll work on it. Its due date stays the same. Drag it back here to unplan it.</span><span class="on-narrow">Tap a task, then set “Plan to work on” to put it on a day. Its due date stays the same.</span></div>
+    <div class="tray-list">${pool.map(([id, t]) => { const db_ = dueBits(t); return `<button type="button" class="tray-t" draggable="true" data-drag="${esc(id)}" data-act="open-task" data-id="${esc(id)}"><b>${esc(nice(t.client) || 'General')}</b><span>${esc(t.title)}${t.period ? ` · ${esc(t.period)}` : ''}</span><span class="t2 ${db_.cls === 'late' ? 'late-n' : ''}">${t.due ? `Due ${fmtD(t.due)}` : 'No due date'}</span></button>`; }).join('') || '<div class="hint">Everything due by the end of this view is planned.</div>'}</div></aside>`;
+  const tg = (k, l) => `<button class="chip" data-act="cal-tog" data-id="${k}" aria-pressed="${calShown(k)}">${l}</button>`;
+  return `<div class="today-head"><div><div class="eyebrow">Calendar</div><h1>${esc(first.toLocaleDateString('en-AU', {month:'long', year:'numeric'}))}</h1>
+      <div class="sub">ATO and payroll tax dates move off weekends. Planned days are when you mean to do the work.</div></div>
+    <div class="cal-nav"><button class="btn small" data-act="cal-mv" data-id="-1" aria-label="Previous month">‹</button><button class="btn small" data-act="cal-mv" data-id="0">Today</button><button class="btn small" data-act="cal-mv" data-id="1" aria-label="Next month">›</button></div></div>
+  <div class="filters"><div class="seg" role="group" aria-label="Whose tasks to plan"><button data-act="mine" data-v="1" aria-pressed="${!!ui.mine}">Mine</button><button data-act="mine" data-v="0" aria-pressed="${!ui.mine}">Everyone</button></div>
+    ${tg('dl', 'ATO & state dates')}${tg('due', 'Due tasks')}${tg('plan', 'Planned')}${tg('done', 'Done tasks')}</div>
+  <div class="cal-wrap"><div class="cal-main"><div class="cal-grid" role="grid" aria-label="Month calendar">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cal-wd">${d}</div>`).join('')}${cells.join('')}</div>${agenda}</div>${tray}</div>`;
+}
+function setPlan(id, day){
+  const t = tasks.get(id); if (!t || readOnly) return;
+  const prev = t.plan || ''; if (prev === day) return;
+  tasks.set(id, {...t, plan: day}); render(true);
+  upd('tasks', id, {plan: day}).catch(()=>{});
+  toast(day ? `Planned for ${D(day).toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short'})}: ${t.title}` : `Unplanned: ${t.title}`,
+    () => { const c = tasks.get(id); if (c) tasks.set(id, {...c, plan: prev}); upd('tasks', id, {plan: prev}).catch(()=>{}); render(true); });
+}
+let calDrag = null;
+document.addEventListener('dragstart', e => { const el = e.target.closest && e.target.closest('[data-drag]'); if (!el || readOnly) return;
+  calDrag = el.dataset.drag; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', calDrag); } catch {} document.body.classList.add('cal-dragging'); });
+document.addEventListener('dragend', () => { calDrag = null; document.body.classList.remove('cal-dragging'); document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on')); });
+document.addEventListener('dragover', e => { if (!calDrag) return; const c = e.target.closest && e.target.closest('[data-day]'); if (!c) return; e.preventDefault();
+  document.querySelectorAll('.drop-on').forEach(x => { if (x !== c) x.classList.remove('drop-on'); }); c.classList.add('drop-on'); });
+document.addEventListener('drop', e => { if (!calDrag) return; const c = e.target.closest && e.target.closest('[data-day]'); if (!c) return; e.preventDefault();
+  const id = calDrag; calDrag = null; c.classList.remove('drop-on'); setPlan(id, c.dataset.day); });
+
 function viewDeadlines(){
   const t0 = today(), q = nextQtrBas();
   const qc = (() => { const y = t0.getFullYear(); const c = [[y,2,28],[y,5,26],[y,8,25],[y,11,25],[y+1,2,28]].map(([yy,m,d]) => roll(new Date(yy,m-1,d,12),true)); return c.find(d => d >= t0); })();
@@ -1404,6 +1551,7 @@ function drawerTask(){
     <div class="three"><div class="field"><label for="f-due">Due date</label><input id="f-due" name="due" type="date" value="${esc(t.due||'')}"${dis()}></div>
       <div class="field"><label for="f-owner">Owner</label><input id="f-owner" name="owner" value="${esc(t.owner||'')}"${dis()}></div>
       <div class="field"><label for="f-est">Est. minutes</label><input id="f-est" name="estMin" type="number" min="0" step="5" value="${esc(t.estMin||'')}"${dis()}></div></div>
+    <div class="three"><div class="field"><label for="f-plan">Plan to work on</label><input id="f-plan" name="plan" type="date" value="${esc(t.plan||'')}"${dis()}></div><div class="field" style="grid-column:span 2;align-self:end"><div class="hint" style="margin:0 0 9px">Puts the task on that day in the Calendar.</div></div></div>
     ${isNew ? `<div class="field"><label for="f-steps">Steps (optional, one per line)</label><textarea id="f-steps" name="steps" style="min-height:70px"${dis()}></textarea></div>` : ''}
     <label class="check"><input type="checkbox" id="f-prio" name="priority" ${t.priority?'checked':''}${dis()}> Flag as priority</label>
     <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="What's outstanding, who you're waiting on, where the file is"${dis()}>${esc(t.notes||'')}</textarea>${t.clientId || isNew ? '<div class="hint">Task notes also show in the client\'s notes and history, even after the task is done.</div>' : ''}</div>
@@ -1634,7 +1782,7 @@ async function saveTask(){
   const fd = formData('taskForm'); if (!fd) return;
   const title = val(fd,'title'); if (!title){ toast('Give the task a name first.'); return; }
   const {clientId, client} = await resolveClient(val(fd,'client'));
-  const patch = {title, clientId, client, ws: val(fd,'ws'), due: val(fd,'due'), owner: val(fd,'owner'), estMin: +val(fd,'estMin') || 0, priority: fd.get('priority') === 'on', notes: String(fd.get('notes')||'')};
+  const patch = {title, clientId, client, ws: val(fd,'ws'), due: val(fd,'due'), owner: val(fd,'owner'), estMin: +val(fd,'estMin') || 0, priority: fd.get('priority') === 'on', notes: String(fd.get('notes')||''), plan: val(fd,'plan')};
   if (!drawer.id){
     const id = rid('t');
     const steps = String(fd.get('steps')||'').split('\n').map(s => s.trim()).filter(Boolean).map(n => ({n, d:false}));
@@ -1742,7 +1890,7 @@ function askContext(){
   const t0 = today(), ti = iso(t0), lines = [];
   const taskLine = (id, t) => { const st = t.steps || [], dn = st.filter(s => s.d).length;
     return [id, nice(t.client) || 'General', t.title + (t.period ? ` · ${t.period}` : ''), t.status, t.due ? `due ${dayName(t.due)} (${t.due})` : 'no due date', t.owner || '',
-      [t.priority && 'PRIORITY', t.focus && 'PINNED TO TODAY', t.timerStart && 'TIMER RUNNING', st.length && `steps ${dn}/${st.length}`, t.timeSec && `logged ${fmtHrs(elapsed(t))}`, t.jobId ? 'recurring' : 'one-off'].filter(Boolean).join(', '),
+      [t.priority && 'PRIORITY', t.focus && 'PINNED TO TODAY', t.plan && `planned for ${t.plan}`, t.timerStart && 'TIMER RUNNING', st.length && `steps ${dn}/${st.length}`, t.timeSec && `logged ${fmtHrs(elapsed(t))}`, t.jobId ? 'recurring' : 'one-off'].filter(Boolean).join(', '),
       t.notes ? `notes: ${clip(t.notes, 180)}` : ''].filter(Boolean).join(' | '); };
   const open = [...tasks].filter(([,t]) => isOpen(t)).sort(byDue);
   lines.push(`OPEN TASKS (${open.length}): id | client | task | status | due | owner | flags | notes`);
@@ -1822,17 +1970,19 @@ function askToolList(acts){
     }
   }, {
     name: 'update_task',
-    description: 'Changes one existing task: status, due date, pin to today\'s focus, priority flag, or adds a line to its notes. Returns what changed. Use only when the user asks.',
+    description: 'Changes one existing task: status, due date, planned day, pin to today\'s focus, priority flag, or adds a line to its notes. Returns what changed. Use only when the user asks.',
     inputSchema: {type:'object', properties: {
       id: {type:'string', description:'Task id from the board data'},
       status: {type:'string', enum: STATUSES}, due: {type:'string', description:'YYYY-MM-DD'},
       pinned: {type:'boolean', description:'true pins it to today\'s focus, false unpins'},
-      priority: {type:'boolean'}, add_note: {type:'string', description:'Text to add on a new line at the end of the task notes'}}, required: ['id']},
+      priority: {type:'boolean'}, plan: {type:'string', description:'Day to work on it (YYYY-MM-DD) for the Calendar, or empty to unplan'},
+      add_note: {type:'string', description:'Text to add on a new line at the end of the task notes'}}, required: ['id']},
     async execute(input){
       if (readOnly) throw new Error('This board is read-only for the current viewer.');
       const id = String(input.id || ''), t = tasks.get(id); if (!t) throw new Error(`No task with id ${id}.`);
       const undos = [], done = [], patch = {}, prev = {};
       if (input.due != null && String(input.due) !== (t.due || '')){ const d = String(input.due).trim(); if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error('due must be YYYY-MM-DD.'); prev.due = t.due || ''; patch.due = d; done.push(d ? `due ${dayName(d)}` : 'no due date'); }
+      if (input.plan != null && String(input.plan) !== (t.plan || '')){ const d = String(input.plan).trim(); if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error('plan must be YYYY-MM-DD.'); prev.plan = t.plan || ''; patch.plan = d; done.push(d ? `planned for ${dayName(d)}` : 'unplanned'); }
       if (typeof input.priority === 'boolean' && input.priority !== !!t.priority){ prev.priority = !!t.priority; patch.priority = input.priority; done.push(input.priority ? 'flagged priority' : 'priority removed'); }
       if (input.add_note){ const n = String(input.add_note).trim(); if (n){ prev.notes = t.notes || ''; prev.notesAt = t.notesAt || ''; patch.notes = (t.notes ? t.notes.replace(/\s+$/, '') + '\n' : '') + n; patch.notesAt = nowIso(); done.push('note added'); } }
       askStep(`Updating ${t.title}…`);
@@ -2191,6 +2341,11 @@ document.addEventListener('click', e => {
     case 'bulk-pin': { const on = a.dataset.v === '1'; const ids = [...tPicked].filter(i => tasks.has(i) && !!tasks.get(i).focus !== on && (!on || isOpen(tasks.get(i)))); if (!ids.length){ toast(on ? 'Already pinned' : 'None of those are pinned'); break; } tPicked.clear(); setFocus(ids, on); break; }
     case 'fstop': stopFree(); break;
     case 'go-time': ui.view = 'time'; persistUi(); render(); window.scrollTo(0,0); break;
+    case 'cal-mv': { const n = +id; if (!n){ ui.calMonth = ''; ui.calSel = iso(today()); } else { const [y, m] = (ui.calMonth || iso(today()).slice(0,7)).split('-').map(Number), d = new Date(y, m - 1 + n, 1, 12); ui.calMonth = iso(d).slice(0,7); ui.calSel = ''; } persistUi(); render(); break; }
+    case 'cal-sel': ui.calSel = id; persistUi(); render(true); { const ag = document.querySelector('.cal-agenda'); if (ag && innerWidth <= 720) ag.scrollIntoView({block:'nearest', behavior:'smooth'}); } break;
+    case 'cal-new': openDrawer('task', null, {due: id}); break;
+    case 'cal-tog': { const off = new Set(ui.calOff || ['done']); off.has(id) ? off.delete(id) : off.add(id); ui.calOff = [...off]; persistUi(); render(true); break; }
+    case 'cal-unplan': setPlan(id, ''); break;
     case 'ts-start': tsStart(); break;
     case 'ts-again': tsAgain(id); break;
     case 'ts-xlsx': tsExcel(a); break;

@@ -69,7 +69,7 @@ for (const width of [1280, 400]) {
     const saved = JSON.parse(await readFile(await dl.path(), 'utf8'));
     assert.equal(Object.keys(saved.clients).length, 46);
     await p.click('.d-head [data-act="close"]');
-    for (const v of ['board', 'clients', 'all', 'notes', 'time', 'deadlines', 'today']) { await p.click(`#tabs button[data-view="${v}"]`); await wait(150); }
+    for (const v of ['board', 'clients', 'all', 'notes', 'time', 'calendar', 'deadlines', 'today']) { await p.click(`#tabs button[data-view="${v}"]`); await wait(150); }
     assert.equal(await p.evaluate(() => document.documentElement.scrollWidth - innerWidth), 0, 'no sideways scroll');
     assert.deepEqual(errors, []);
     await ctx.close();
