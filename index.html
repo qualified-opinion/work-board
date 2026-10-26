@@ -410,7 +410,29 @@ body.resizing{user-select:none;cursor:ew-resize}
 @media (max-width:720px){.cal-d{min-height:54px;padding:3px}.cal-items{display:none}.cal-dots{display:flex;flex-wrap:wrap;gap:3px;padding:0 4px}
   .cal-dots .dot{width:6px;height:6px;border-radius:50%;background:var(--ns-fg)}.cal-dots .dot.ato,.cal-dots .dot.state{background:var(--muted);opacity:.5}.cal-dots .dot.plan{background:var(--accent)}.cal-dots .dot.late{background:var(--late)}.cal-dots .dot.closed{opacity:.35}
   .cal-wd{padding:5px 2px;text-align:center;font-size:10.5px}.cal-n{width:100%;padding:5px 0}.cal-add{display:none}.cal-dh{justify-content:center}
-  .ag-row{flex-wrap:wrap}.ag-row .pill{margin-left:auto}}
+  .ag-row{flex-wrap:wrap;row-gap:6px}.ag-row .pill{margin-left:auto}.ag-row .grow{flex:1 1 calc(100% - 64px)}}
+
+.cal-nav{flex-wrap:wrap;align-items:center}
+.ag-h{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+.cal-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.wk-d{background:var(--surface);min-height:420px;display:flex;flex-direction:column;min-width:0}
+.wk-d.we{background:color-mix(in srgb,var(--surface) 70%,var(--sunk))}
+.wk-d.drop-on,.cal-day.drop-on{background:var(--accent-soft)}
+.wk-h{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--sunk)}
+.wk-n{border:0;background:none;display:flex;align-items:baseline;gap:6px;cursor:pointer;color:var(--ink);padding:2px 4px;border-radius:7px;flex:1;text-align:left}
+.wk-n span{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase}.wk-n b{font:600 15px/1 var(--f-mono)}
+.wk-d.today .wk-n b{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:3px 6px}
+.wk-d:hover .cal-add{opacity:1}
+.wk-items{display:flex;flex-direction:column;gap:4px;padding:6px;min-width:0}
+.wk-items .cal-dl{white-space:normal}
+.cal-t.full{white-space:normal;font-size:12px;line-height:1.35;padding:5px 7px}
+.cal-t.full b{display:block}
+.wk-empty{color:var(--muted);font-size:12px;padding:4px 2px;opacity:.7}
+.cal-day{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:14px;align-items:flex-start;min-height:300px}
+.cal-day,.day-g{min-width:0;max-width:100%}.day-g{width:100%}.ag-dl .t2{white-space:normal;overflow-wrap:anywhere}.day-g h3{font-size:14px;margin:0 0 4px}
+.ag-row.late .tag.due{color:var(--late)}
+@media (max-width:1000px){.cal-week{grid-template-columns:repeat(4,minmax(0,1fr))}.wk-d{min-height:220px}}
+@media (max-width:720px){.cal-week{grid-template-columns:minmax(0,1fr)}.wk-d{min-height:0}.wk-d .cal-add{display:inline-block;opacity:1}.wk-empty{display:none}}
 /* Ask */
 .ask-body{display:flex;flex-direction:column;gap:12px}
 .ask-sugg{display:flex;flex-wrap:wrap;gap:8px}
@@ -1405,41 +1427,79 @@ function calChip(x, ti){
   const label = `${nice(t.client) || 'General'} · ${t.title}${t.period ? ` · ${t.period}` : ''}`;
   return `<button type="button" class="cal-t ${x.type}${open ? '' : ' closed'}${late ? ' late' : ''} s-${SC[t.status] || 'ns'}" data-act="open-task" data-id="${esc(x.id)}" draggable="${open && !readOnly}" data-drag="${esc(x.id)}" title="${esc(label)} · ${esc(t.status)}${x.type === 'plan' ? ` · planned, due ${t.due ? fmtD(t.due) : 'no date'}` : ''}">${x.type === 'plan' ? '<span class="pl">Plan</span>' : ''}<b>${esc(nice(t.client) || 'General')}</b> ${esc(t.title)}</button>`;
 }
+// Month, week or day; ui.calDate is the day the view is anchored on.
+const calMode = () => ['month','week','day'].includes(ui.calMode) ? ui.calMode : 'month';
+function calAnchor(){ const ti = iso(today()); if (ui.calDate) return ui.calDate; if (ui.calMonth && ui.calMonth !== ti.slice(0,7)) return ui.calMonth + '-01'; return ti; }
+const weekStart = d => addDays(d, -((d.getDay() + 6) % 7));
+function calRow(x){
+  if (x.type === 'dl') return `<div class="ag-row ag-dl"><span class="tag ${x.kind}">${x.kind === 'ato' ? 'ATO' : 'State'}</span><div class="grow"><b>${esc(x.label)}</b><div class="t2">${esc(x.info)}</div></div></div>`;
+  const t = x.t, late = isOpen(t) && x.type === 'due' && t.due < iso(today());
+  return `<div class="ag-row${late ? ' late' : ''}"><span class="tag ${x.type}">${x.type === 'plan' ? 'Planned' : late ? 'Overdue' : 'Due'}</span><button type="button" class="grow linkish ag-t" data-act="open-task" data-id="${esc(x.id)}" draggable="${isOpen(t) && !readOnly}" data-drag="${esc(x.id)}"><b>${esc(nice(t.client) || 'General')}</b> · ${esc(t.title)}${t.period ? ` · ${esc(t.period)}` : ''}${x.type === 'plan' && t.due ? `<span class="t2"> · due ${fmtD(t.due)}</span>` : ''}${x.type === 'due' && t.plan && t.plan !== t.due ? `<span class="t2"> · planned ${fmtD(t.plan)}</span>` : ''}</button>${statusSelect(x.id, t.status)}${x.type === 'plan' && !readOnly ? `<button type="button" class="btn ghost small" data-act="cal-unplan" data-id="${esc(x.id)}">Unplan</button>` : ''}</div>`;
+}
 function viewCalendar(){
-  const t0 = today(), ti = iso(t0);
-  const [cy, cm] = (ui.calMonth || ti.slice(0, 7)).split('-').map(Number);
-  const first = new Date(cy, cm - 1, 1, 12), start = addDays(first, -((first.getDay() + 6) % 7));
-  const last = new Date(cy, cm, 0, 12), weeks = Math.ceil((dayDiff(last, start) + 1) / 7), end = addDays(start, weeks * 7 - 1);
-  const sI = iso(start), eI = iso(end), items = calItems(sI, eI);
-  const sel = ui.calSel && ui.calSel >= sI && ui.calSel <= eI ? ui.calSel : (ti >= iso(first) && ti <= iso(last) ? ti : iso(first));
-  const cells = [];
-  for (let i = 0; i < weeks * 7; i++){
-    const d = addDays(start, i), k = iso(d), list = items.get(k) || [], inM = d.getMonth() === cm - 1;
-    const shown = list.slice(0, 4), more = list.length - shown.length;
-    const dots = list.slice(0, 6).map(x => `<i class="dot ${x.type === 'dl' ? x.kind : x.type}${x.t && !isOpen(x.t) ? ' closed' : ''}${x.type === 'due' && x.t && isOpen(x.t) && x.t.due < ti ? ' late' : ''}"></i>`).join('');
-    cells.push(`<div class="cal-d${inM ? '' : ' out'}${k === ti ? ' today' : ''}${k === sel ? ' sel' : ''}${d.getDay() % 6 === 0 ? ' we' : ''}" data-day="${k}">
-      <div class="cal-dh"><button type="button" class="cal-n" data-act="cal-sel" data-id="${k}" aria-label="${esc(D(k).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}, ${list.length} item${list.length === 1 ? '' : 's'}">${d.getDate()}</button>${readOnly ? '' : `<button type="button" class="cal-add" data-act="cal-new" data-id="${k}" title="Add a task due this day" aria-label="Add a task due ${fmtD(k)}">+</button>`}</div>
-      <div class="cal-items">${shown.map(x => calChip(x, ti)).join('')}${more > 0 ? `<button type="button" class="cal-more" data-act="cal-sel" data-id="${k}">+${more} more</button>` : ''}</div>
-      <div class="cal-dots" aria-hidden="true">${dots}</div></div>`);
+  const t0 = today(), ti = iso(t0), mode = calMode(), a = D(calAnchor());
+  let start, end, title, body;
+  if (mode === 'month'){
+    const first = new Date(a.getFullYear(), a.getMonth(), 1, 12), last = new Date(a.getFullYear(), a.getMonth() + 1, 0, 12);
+    start = weekStart(first); const weeks = Math.ceil((dayDiff(last, start) + 1) / 7); end = addDays(start, weeks * 7 - 1);
+    title = first.toLocaleDateString('en-AU', {month:'long', year:'numeric'});
+    const items = calItems(iso(start), iso(end));
+    const sel = ui.calSel && ui.calSel >= iso(first) && ui.calSel <= iso(last) ? ui.calSel : (ti >= iso(first) && ti <= iso(last) ? ti : iso(first));
+    const cells = [];
+    for (let i = 0; i < weeks * 7; i++){
+      const d = addDays(start, i), k = iso(d), list = items.get(k) || [], inM = d.getMonth() === first.getMonth();
+      const shown = list.slice(0, 4), more = list.length - shown.length;
+      const dots = list.slice(0, 6).map(x => `<i class="dot ${x.type === 'dl' ? x.kind : x.type}${x.t && !isOpen(x.t) ? ' closed' : ''}${x.type === 'due' && x.t && isOpen(x.t) && x.t.due < ti ? ' late' : ''}"></i>`).join('');
+      cells.push(`<div class="cal-d${inM ? '' : ' out'}${k === ti ? ' today' : ''}${k === sel ? ' sel' : ''}${d.getDay() % 6 === 0 ? ' we' : ''}" data-day="${k}">
+        <div class="cal-dh"><button type="button" class="cal-n" data-act="cal-sel" data-id="${k}" aria-label="${esc(D(k).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}, ${list.length} item${list.length === 1 ? '' : 's'}">${d.getDate()}</button>${readOnly ? '' : `<button type="button" class="cal-add" data-act="cal-new" data-id="${k}" title="Add a task due this day" aria-label="Add a task due ${fmtD(k)}">+</button>`}</div>
+        <div class="cal-items">${shown.map(x => calChip(x, ti)).join('')}${more > 0 ? `<button type="button" class="cal-more" data-act="cal-sel" data-id="${k}">+${more} more</button>` : ''}</div>
+        <div class="cal-dots" aria-hidden="true">${dots}</div></div>`);
+    }
+    const selList = items.get(sel) || [];
+    body = `<div class="cal-grid" role="grid" aria-label="Month calendar">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cal-wd">${d}</div>`).join('')}${cells.join('')}</div>
+      <div class="cal-agenda"><div class="ag-h"><h2>${esc(D(sel).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}</h2><button type="button" class="btn ghost small" data-act="cal-day" data-id="${sel}">Open day view</button></div>
+      ${selList.length ? selList.map(calRow).join('') : '<div class="hint">Nothing on this day.</div>'}
+      ${readOnly ? '' : `<button type="button" class="btn small" data-act="cal-new" data-id="${sel}">+ Task due this day</button>`}</div>`;
+  } else if (mode === 'week'){
+    start = weekStart(a); end = addDays(start, 6);
+    title = `${start.getDate()} ${MON[start.getMonth()]}${start.getFullYear() !== end.getFullYear() ? ' ' + start.getFullYear() : ''} – ${end.getDate()} ${MON[end.getMonth()]} ${end.getFullYear()}`;
+    const items = calItems(iso(start), iso(end)), cols = [];
+    for (let i = 0; i < 7; i++){
+      const d = addDays(start, i), k = iso(d), list = items.get(k) || [];
+      cols.push(`<section class="wk-d${k === ti ? ' today' : ''}${d.getDay() % 6 === 0 ? ' we' : ''}" data-day="${k}">
+        <div class="wk-h"><button type="button" class="wk-n" data-act="cal-day" data-id="${k}" title="Open day view"><span>${d.toLocaleDateString('en-AU', {weekday:'short'})}</span><b>${d.getDate()}</b></button>${list.length ? `<span class="t2">${list.filter(x => x.type !== 'dl').length || ''}</span>` : ''}${readOnly ? '' : `<button type="button" class="cal-add" data-act="cal-new" data-id="${k}" title="Add a task due this day" aria-label="Add a task due ${fmtD(k)}">+</button>`}</div>
+        <div class="wk-items">${list.map(x => x.type === 'dl' ? calChip(x, ti) : calChip(x, ti).replace('class="cal-t ', 'class="cal-t full ')).join('') || '<div class="wk-empty">Free</div>'}</div></section>`);
+    }
+    body = `<div class="cal-week" aria-label="Week calendar">${cols.join('')}</div>`;
+  } else {
+    start = a; end = a; const k = iso(a);
+    title = a.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const list = calItems(k, k).get(k) || [];
+    const dls = list.filter(x => x.type === 'dl'), due = list.filter(x => x.type === 'due'), plan = list.filter(x => x.type === 'plan');
+    const grp = (h, l, empty) => `<div class="day-g"><h3>${h}${l.length ? ` <span class="t2">${l.length}</span>` : ''}</h3>${l.length ? l.map(calRow).join('') : `<div class="hint">${empty}</div>`}</div>`;
+    const over = k === ti ? [...tasks].filter(([, t]) => isOpen(t) && t.due && t.due < ti && (!ui.mine || isMine(t))).sort(byDue).map(([id, t]) => ({type: 'due', id, t})) : [];
+    body = `<div class="cal-day" data-day="${k}">
+      ${dls.length ? grp('Deadlines', dls, '') : ''}
+      ${grp('Planned for this day', plan, 'Nothing planned. Drag a task here from To plan, or set “Plan to work on” in a task.')}
+      ${grp('Due this day', due, 'Nothing due.')}
+      ${over.length ? grp('Still overdue', over, '') : ''}
+      ${readOnly ? '' : `<button type="button" class="btn small" data-act="cal-new" data-id="${k}">+ Task due this day</button>`}</div>`;
   }
-  const selList = items.get(sel) || [];
-  const agenda = `<div class="cal-agenda"><h2>${esc(D(sel).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}))}</h2>
-    ${selList.length ? selList.map(x => x.type === 'dl'
-      ? `<div class="ag-row dl"><span class="tag ${x.kind}">${x.kind === 'ato' ? 'ATO' : 'State'}</span><div class="grow"><b>${esc(x.label)}</b><div class="t2">${esc(x.info)}</div></div></div>`
-      : `<div class="ag-row"><span class="tag ${x.type}">${x.type === 'plan' ? 'Planned' : 'Due'}</span><button type="button" class="grow linkish ag-t" data-act="open-task" data-id="${esc(x.id)}"><b>${esc(nice(x.t.client) || 'General')}</b> · ${esc(x.t.title)}${x.t.period ? ` · ${esc(x.t.period)}` : ''}</button>${statusSelect(x.id, x.t.status)}${x.type === 'plan' && !readOnly ? `<button type="button" class="btn ghost small" data-act="cal-unplan" data-id="${esc(x.id)}">Unplan</button>` : ''}</div>`).join('')
-      : '<div class="hint">Nothing on this day.</div>'}
-    ${readOnly ? '' : `<button type="button" class="btn small" data-act="cal-new" data-id="${sel}">+ Task due this day</button>`}</div>`;
+  const eI = iso(end);
   const pool = [...tasks].filter(([, t]) => isOpen(t) && !t.plan && (!ui.mine || isMine(t)) && (!t.due || t.due <= eI)).sort(byDue).slice(0, 60);
   const tray = readOnly ? '' : `<aside class="cal-tray" data-day="">
     <h2>To plan</h2><div class="hint"><span class="on-wide">Drag a task onto a day to plan when you'll work on it. Its due date stays the same. Drag it back here to unplan it.</span><span class="on-narrow">Tap a task, then set “Plan to work on” to put it on a day. Its due date stays the same.</span></div>
     <div class="tray-list">${pool.map(([id, t]) => { const db_ = dueBits(t); return `<button type="button" class="tray-t" draggable="true" data-drag="${esc(id)}" data-act="open-task" data-id="${esc(id)}"><b>${esc(nice(t.client) || 'General')}</b><span>${esc(t.title)}${t.period ? ` · ${esc(t.period)}` : ''}</span><span class="t2 ${db_.cls === 'late' ? 'late-n' : ''}">${t.due ? `Due ${fmtD(t.due)}` : 'No due date'}</span></button>`; }).join('') || '<div class="hint">Everything due by the end of this view is planned.</div>'}</div></aside>`;
   const tg = (k, l) => `<button class="chip" data-act="cal-tog" data-id="${k}" aria-pressed="${calShown(k)}">${l}</button>`;
-  return `<div class="today-head"><div><div class="eyebrow">Calendar</div><h1>${esc(first.toLocaleDateString('en-AU', {month:'long', year:'numeric'}))}</h1>
+  const md = (k, l) => `<button data-act="cal-mode" data-id="${k}" aria-pressed="${mode === k}">${l}</button>`;
+  const step = {month: 'month', week: 'week', day: 'day'}[mode];
+  return `<div class="today-head"><div><div class="eyebrow">Calendar</div><h1>${esc(title)}</h1>
       <div class="sub">ATO and payroll tax dates move off weekends. Planned days are when you mean to do the work.</div></div>
-    <div class="cal-nav"><button class="btn small" data-act="cal-mv" data-id="-1" aria-label="Previous month">‹</button><button class="btn small" data-act="cal-mv" data-id="0">Today</button><button class="btn small" data-act="cal-mv" data-id="1" aria-label="Next month">›</button></div></div>
-  <div class="filters"><div class="seg" role="group" aria-label="Whose tasks to plan"><button data-act="mine" data-v="1" aria-pressed="${!!ui.mine}">Mine</button><button data-act="mine" data-v="0" aria-pressed="${!ui.mine}">Everyone</button></div>
+    <div class="cal-nav"><div class="seg" role="group" aria-label="Calendar view">${md('month','Month')}${md('week','Week')}${md('day','Day')}</div>
+      <button class="btn small" data-act="cal-mv" data-id="-1" aria-label="Previous ${step}">‹</button><button class="btn small" data-act="cal-mv" data-id="0">Today</button><button class="btn small" data-act="cal-mv" data-id="1" aria-label="Next ${step}">›</button></div></div>
+  <div class="filters"><div class="seg" role="group" aria-label="Whose tasks"><button data-act="mine" data-v="1" aria-pressed="${!!ui.mine}">Mine</button><button data-act="mine" data-v="0" aria-pressed="${!ui.mine}">Everyone</button></div>
     ${tg('dl', 'ATO & state dates')}${tg('due', 'Due tasks')}${tg('plan', 'Planned')}${tg('done', 'Done tasks')}</div>
-  <div class="cal-wrap"><div class="cal-main"><div class="cal-grid" role="grid" aria-label="Month calendar">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cal-wd">${d}</div>`).join('')}${cells.join('')}</div>${agenda}</div>${tray}</div>`;
+  <div class="cal-wrap"><div class="cal-main">${body}</div>${tray}</div>`;
 }
 function setPlan(id, day){
   const t = tasks.get(id); if (!t || readOnly) return;
@@ -2341,7 +2401,12 @@ document.addEventListener('click', e => {
     case 'bulk-pin': { const on = a.dataset.v === '1'; const ids = [...tPicked].filter(i => tasks.has(i) && !!tasks.get(i).focus !== on && (!on || isOpen(tasks.get(i)))); if (!ids.length){ toast(on ? 'Already pinned' : 'None of those are pinned'); break; } tPicked.clear(); setFocus(ids, on); break; }
     case 'fstop': stopFree(); break;
     case 'go-time': ui.view = 'time'; persistUi(); render(); window.scrollTo(0,0); break;
-    case 'cal-mv': { const n = +id; if (!n){ ui.calMonth = ''; ui.calSel = iso(today()); } else { const [y, m] = (ui.calMonth || iso(today()).slice(0,7)).split('-').map(Number), d = new Date(y, m - 1 + n, 1, 12); ui.calMonth = iso(d).slice(0,7); ui.calSel = ''; } persistUi(); render(); break; }
+    case 'cal-mv': { const n = +id, m = calMode(); delete ui.calMonth;
+      if (!n){ ui.calDate = ''; ui.calSel = iso(today()); }
+      else { const d = D(calAnchor()); ui.calDate = iso(m === 'month' ? new Date(d.getFullYear(), d.getMonth() + n, 1, 12) : addDays(d, n * (m === 'week' ? 7 : 1))); ui.calSel = m === 'month' ? '' : ui.calDate; }
+      persistUi(); render(); break; }
+    case 'cal-mode': { const m = calMode(); if (m === 'month' && ui.calSel) ui.calDate = ui.calSel; ui.calMode = id; delete ui.calMonth; persistUi(); render(); break; }
+    case 'cal-day': ui.calMode = 'day'; ui.calDate = id; ui.calSel = id; delete ui.calMonth; persistUi(); render(); window.scrollTo(0,0); break;
     case 'cal-sel': ui.calSel = id; persistUi(); render(true); { const ag = document.querySelector('.cal-agenda'); if (ag && innerWidth <= 720) ag.scrollIntoView({block:'nearest', behavior:'smooth'}); } break;
     case 'cal-new': openDrawer('task', null, {due: id}); break;
     case 'cal-tog': { const off = new Set(ui.calOff || ['done']); off.has(id) ? off.delete(id) : off.add(id); ui.calOff = [...off]; persistUi(); render(true); break; }
