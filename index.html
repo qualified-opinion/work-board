@@ -212,7 +212,7 @@ body.has-timer .selbar{bottom:84px}
 .day.today{border-color:var(--accent)}
 @media (max-width:520px){.days{gap:4px}.day{padding:6px 5px}.day .dh{font-size:11.5px}.day .dn{font-size:11px}}
 .grid tbody tr.nohover{cursor:default}
-.cb-row{display:grid;grid-template-columns:16px minmax(0,1fr) minmax(80px,200px) 72px 72px 48px;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.cb-row{display:grid;grid-template-columns:var(--cbcols);gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
 .cb .cb-row:first-child{border-top:0}
 .cb-h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);border-radius:12px 12px 0 0}
 .cb-key{text-transform:none;letter-spacing:0;font-weight:400;display:flex;align-items:center;gap:5px;white-space:nowrap}.cb-key i{display:inline-block;width:10px;height:6px;border-radius:2px}.cb-key i.n{margin-left:6px}
@@ -222,9 +222,13 @@ body.has-timer .selbar{bottom:84px}
 .cb-name{min-width:0;display:flex;flex-direction:column;gap:1px}.cb-name b,.cb-name .t1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cb-bar{display:flex;height:7px;border-radius:4px;background:var(--sunk);overflow:hidden}
 .cb-bar i.b,.cb-key i.b{background:var(--accent)}.cb-bar i.n,.cb-key i.n{background:color-mix(in srgb,var(--accent) 35%,var(--sunk))}
+.cb .cb-bar,.cb .cb-key{display:none}.cb-bk{font-size:12.5px;color:var(--ink)}.cb-h .cb-bk{font-family:var(--f-body,inherit);font-size:11px;letter-spacing:0;text-transform:none;color:var(--muted);white-space:normal;line-height:1.2}
+.cb-total{border-top:2px solid var(--line-strong,var(--line));background:var(--sunk);border-radius:0 0 12px 12px}.cb-total .cb-num{font-weight:600}
 .cb-num{font-family:var(--f-mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.cb-tot{font-weight:600}.cb-pct,.cb-bill{color:var(--muted)}
 .filters .seg + .search{flex:1}
-@media (max-width:720px){.cb-row{grid-template-columns:14px minmax(0,1fr) 64px;row-gap:6px}.cb-row .cb-bar{grid-column:2 / -1;grid-row:2}.cb-bill,.cb-pct,.cb-h .cb-key{display:none}.cb-h{grid-template-columns:14px minmax(0,1fr) 64px}}
+.cb-bkm{display:none;color:var(--muted);font-size:12px}
+@media (max-width:1000px){.cb .cb-pct,.cb .cb-bill{display:none}.cb-row{grid-template-columns:var(--cbcols-m,var(--cbcols));gap:8px}.cb-bk{font-size:11.5px}}
+@media (max-width:720px){.cb .cb-row{grid-template-columns:14px minmax(0,1fr) 64px;row-gap:6px}.cb-bkm{display:block}.cb .cb-bar{display:flex}.cb .cb-bk{display:none}.cb-total .cb-bar{display:none}.cb-row .cb-bar{grid-column:2 / -1;grid-row:2}.cb-bill,.cb-pct,.cb-h .cb-key{display:none}.cb-h{grid-template-columns:14px minmax(0,1fr) 64px}}
 .k-client-work{background:var(--ip-bg);color:var(--ip-fg)} .k-admin{background:var(--ns-bg);color:var(--ns-fg)} .k-training{background:var(--dn-bg);color:var(--dn-fg)}
 .k-business-development{background:var(--rv-bg);color:var(--rv-fg)} .k-leave{background:var(--na-bg);color:var(--na-fg)} .k-other{background:var(--ns-bg);color:var(--ns-fg)}
 .today-head .filters .btn.small{min-width:34px;justify-content:center}
@@ -849,15 +853,24 @@ function tsRange(){
   return {s, e, label: `${s.getDate()} ${MON[s.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]} ${e.getFullYear()}`};
 }
 function tsMatch(x){ const q = (ui.tsQ || '').toLowerCase(); if (!q) return true; return [x.client, nice(x.client), x.title, x.category, entryNotes(x)].some(v => String(v||'').toLowerCase().includes(q)); }
+// Columns for the client summary: Mon–Sun weeks (cut to the month) in Month view, days in Week view.
+function tsBuckets(){
+  const {s, e} = tsRange(), out = [];
+  if (ui.tsRange === 'month'){ for (let a = s; a <= e; ){ let b = addDays(a, 6 - (a.getDay() + 6) % 7); if (b > e) b = e;
+      out.push({s: iso(a), e: iso(b), label: a.getDate() === b.getDate() ? `${a.getDate()} ${MON[a.getMonth()]}` : `${a.getDate()}–${b.getDate()} ${MON[a.getMonth()]}`, title: `Week ${a.getDate()}–${b.getDate()} ${MON[b.getMonth()]}`}); a = addDays(b, 1); } }
+  else for (let a = s; a <= e; a = addDays(a, 1)) out.push({s: iso(a), e: iso(a), label: `${a.toLocaleDateString('en-AU', {weekday:'short'})} ${a.getDate()}`, title: a.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'short'})});
+  return out;
+}
 // Time grouped by client, then by the work inside each client (task id, or the entry's description for free time).
-function tsBreakdown(list){
-  const cl = new Map();
+function tsBreakdown(list, bks = []){
+  const cl = new Map(), bi = d => bks.findIndex(k => d >= k.s && d <= k.e);
   for (const x of list){
     const ck = nice(x.client) || `Internal · ${x.category || 'Other'}`;
-    const c = cl.get(ck) || {key: ck, b: 0, n: 0, tasks: new Map()}; cl.set(ck, c);
+    const c = cl.get(ck) || {key: ck, b: 0, n: 0, bk: bks.map(() => 0), tasks: new Map()}; cl.set(ck, c);
     const tk = x.taskId || 'w:' + String(x.title || '').trim().toLowerCase();
-    const t = c.tasks.get(tk) || {key: tk, taskId: x.taskId || '', label: '', b: 0, n: 0, count: 0, last: ''}; c.tasks.set(tk, t);
+    const t = c.tasks.get(tk) || {key: tk, taskId: x.taskId || '', label: '', b: 0, n: 0, bk: bks.map(() => 0), count: 0, last: ''}; c.tasks.set(tk, t);
     const sec = +x.sec || 0; if (x.billable){ c.b += sec; t.b += sec; } else { c.n += sec; t.n += sec; }
+    const i = bi(x.date); if (i >= 0){ c.bk[i] += sec; t.bk[i] += sec; }
     t.count++; const when = x.date + (x.start || '');
     if (when >= t.last){ t.last = when; t.label = x.title || ''; }
   }
@@ -867,23 +880,29 @@ function tsBreakdown(list){
     .sort((a,b) => tot(b) - tot(a));
 }
 function tsClientView(list){
-  const cl = tsBreakdown(list); if (!cl.length) return '';
+  const bks = tsBuckets(), cl = tsBreakdown(list, bks); if (!cl.length) return '';
+  const bkT = bks.map((_, i) => cl.reduce((n, c) => n + c.bk[i], 0)), bH = sec => !sec ? '' : sec < 36 ? '<0.01' : +(sec/3600).toFixed(2);
+  const bkLine = arr => { const l = arr.map((v, i) => v ? `${bks[i].label} ${bH(v)}h` : '').filter(Boolean); return l.length > 1 ? `<span class="cb-bkm">${esc(l.join(' · '))}</span>` : ''; };
+  const bkCells = arr => arr.map((v, i) => `<span class="cb-num cb-bk" title="${esc(bks[i].title)}">${bH(v)}</span>`).join('');
+  const cols = `16px minmax(0,1fr) repeat(${bks.length},minmax(46px,60px)) 72px 72px 48px`, colsM = `16px minmax(130px,1fr) repeat(${bks.length},minmax(34px,52px)) 64px`;
   const all = cl.reduce((n, c) => n + c.b + c.n, 0), max = Math.max(...cl.map(c => c.b + c.n)), open = new Set(ui.tsOpen || []);
   const bar = (o, m) => `<span class="cb-bar" aria-hidden="true"><i class="b" style="width:${o.b/m*100}%"></i><i class="n" style="width:${o.n/m*100}%"></i></span>`;
   const pct = o => `${Math.round((o.b + o.n) / all * 100)}%`;
   const hrs = sec => sec ? fmtHrs(sec) : '–';
   const rows = cl.map(c => { const isOpen = open.has(c.key);
     const head = `<div class="cb-row cb-c" role="button" tabindex="0" data-act="ts-cl" data-id="${esc(c.key)}" aria-expanded="${isOpen}">
-      <span class="cb-chev">${isOpen ? '▾' : '▸'}</span><div class="cb-name"><b>${esc(c.key)}</b><span class="t2">${c.tasks.length} ${c.tasks.length === 1 ? 'item' : 'items'} · ${hrs(c.b)} billable</span></div>
-      ${bar(c, max)}<span class="cb-num cb-bill">${hrs(c.b)}</span><span class="cb-num cb-tot">${fmtHrs(c.b + c.n)}</span><span class="cb-num cb-pct">${pct(c)}</span></div>`;
+      <span class="cb-chev">${isOpen ? '▾' : '▸'}</span><div class="cb-name"><b>${esc(c.key)}</b><span class="t2">${c.tasks.length} ${c.tasks.length === 1 ? 'item' : 'items'} · ${hrs(c.b)} billable</span>${bkLine(c.bk)}</div>
+      ${bar(c, max)}${bkCells(c.bk)}<span class="cb-num cb-bill">${hrs(c.b)}</span><span class="cb-num cb-tot">${fmtHrs(c.b + c.n)}</span><span class="cb-num cb-pct">${pct(c)}</span></div>`;
     const sub = isOpen ? c.tasks.map(t => { const can = t.taskId && tasks.has(t.taskId);
       return `<div class="cb-row cb-t"${can ? ` role="button" tabindex="0" data-act="open-task" data-id="${esc(t.taskId)}"` : ''}>
         <span></span><div class="cb-name"><span class="t1">${esc(t.label)}</span><span class="t2">${t.count} ${t.count === 1 ? 'session' : 'sessions'}${t.b && t.n ? ` · ${hrs(t.b)} billable` : t.b ? ' · billable' : ' · non-billable'}</span></div>
-        ${bar(t, c.b + c.n)}<span class="cb-num cb-bill">${hrs(t.b)}</span><span class="cb-num cb-tot">${fmtHrs(t.b + t.n)}</span><span class="cb-num cb-pct">${pct(t)}</span></div>`; }).join('') : '';
+        ${bar(t, c.b + c.n)}${bkCells(t.bk)}<span class="cb-num cb-bill">${hrs(t.b)}</span><span class="cb-num cb-tot">${fmtHrs(t.b + t.n)}</span><span class="cb-num cb-pct">${pct(t)}</span></div>`; }).join('') : '';
     return head + sub; }).join('');
+  const allB = cl.reduce((n, c) => n + c.b, 0);
+  const totRow = `<div class="cb-row cb-total"><span></span><div class="cb-name"><b>Total ${ui.tsRange === 'month' ? 'for the month' : 'for the week'}</b><span class="t2">${hrs(allB)} billable · ${hrs(all - allB)} non-billable</span>${bkLine(bkT)}</div><span class="cb-bar" aria-hidden="true"></span>${bkCells(bkT)}<span class="cb-num cb-bill">${hrs(allB)}</span><span class="cb-num cb-tot">${fmtHrs(all)}</span><span class="cb-num cb-pct">100%</span></div>`;
   const allOpen = cl.every(c => open.has(c.key));
   return `<section class="group"><div class="group-h"><h2>Time by client</h2><span class="count">${cl.length} ${cl.length === 1 ? 'client' : 'clients'}</span><span class="grow"></span><button class="btn small ghost" data-act="ts-all" data-v="${allOpen ? 0 : 1}">${allOpen ? 'Collapse all' : 'Show all tasks'}</button></div>
-    <div class="list cb"><div class="cb-row cb-h" aria-hidden="true"><span></span><span>Client and work</span><span class="cb-key"><i class="b"></i>Billable <i class="n"></i>Non-billable</span><span class="cb-num cb-bill">Billable</span><span class="cb-num cb-tot">Total</span><span class="cb-num cb-pct">Share</span></div>${rows}</div></section>`;
+    <div class="list cb" style="--cbcols:${cols};--cbcols-m:${colsM}"><div class="cb-row cb-h" aria-hidden="true"><span></span><span>Client and work</span><span class="cb-key"><i class="b"></i>Billable <i class="n"></i>Non-billable</span>${bks.map(k => `<span class="cb-num cb-bk" title="${esc(k.title)}">${esc(k.label)}</span>`).join('')}<span class="cb-num cb-bill">Billable</span><span class="cb-num cb-tot">Total</span><span class="cb-num cb-pct">Share</span></div>${rows}${totRow}</div></section>`;
 }
 function viewTime(){
   const {s, e, label} = tsRange(), sI = iso(s), eI = iso(e), t0 = iso(today());
@@ -982,6 +1001,18 @@ async function tsExcel(btn){
     const tl1 = tRows.length + 1, sumT = c => ({t:'n', f:`SUM(${c}2:${c}${tl1})`, z:'0.00', v: tRows.reduce((a, r) => a + (+(r[{D:3,E:4,F:5}[c]] || {}).v || 0), 0)});
     const wsT = sheet([['Client', 'Work', 'Sessions', 'Billable hours', 'Non-billable hours', 'Total hours'], ...tRows, [], ['Total', '', '', sumT('D'), sumT('E'), sumT('F')]], [40, 48, 9, 15, 18, 13], ws => { ws['!autofilter'] = {ref: `A1:F${tl1}`}; });
 
+    // Client and work by week (Month) or by day (Week), with subtotals per client
+    const bks = tsBuckets(), L = i => String.fromCharCode(67 + i), lastL = L(bks.length), pRows = [], subRows = [];
+    for (const c of tsBreakdown(rows, bks)){
+      const first = pRows.length + 2;
+      for (const t of c.tasks){ const r = pRows.length + 2; pRows.push([c.key, t.label, ...t.bk.map(v => v ? cell(H(v), '0.00') : null), {t:'n', f:`SUM(C${r}:${L(bks.length - 1)}${r})`, v: H(t.b + t.n), z:'0.00'}]); }
+      const last = pRows.length + 1, r = last + 1; subRows.push(r);
+      pRows.push([`${c.key} total`, '', ...bks.map((_, i) => ({t:'n', f:`SUM(${L(i)}${first}:${L(i)}${last})`, v: H(c.bk[i]), z:'0.00'})), {t:'n', f:`SUM(${lastL}${first}:${lastL}${last})`, v: H(c.b + c.n), z:'0.00'}]);
+    }
+    const pTot = ['Total', '', ...[...bks.keys(), bks.length].map(i => ({t:'n', f: subRows.map(r => `${L(i)}${r}`).join('+') || '0', z:'0.00', v: subRows.reduce((a, r) => a + (+(pRows[r - 2][i + 2] || {}).v || 0), 0)}))];
+    const wsP = sheet([['Client', 'Work', ...bks.map(k => k.title), 'Total hours'], ...pRows, [], pTot], [40, 48, ...bks.map(() => 13), 12], ws => {
+      for (const r of subRows) for (let i = 0; i < bks.length + 3; i++){ const a = X.utils.encode_cell({r: r - 1, c: i}); if (ws[a]) ws[a].s = {font: {bold: true}}; } });
+
     // By day
     const days = new Map(); for (const x of rows){ const o = days.get(x.date) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; days.set(x.date, o); }
     const dl = [...days.entries()].sort((a,b) => a[0].localeCompare(b[0]));
@@ -993,6 +1024,7 @@ async function tsExcel(btn){
     X.utils.book_append_sheet(wb, ws1, 'Timesheet');
     X.utils.book_append_sheet(wb, ws2, 'By client');
     X.utils.book_append_sheet(wb, wsT, 'By task');
+    X.utils.book_append_sheet(wb, wsP, ui.tsRange === 'month' ? 'Client by week' : 'Client by day');
     X.utils.book_append_sheet(wb, ws3, 'By day');
     wb.Props = {Title: `Timesheet ${label}`};
     const buf = X.write(wb, {bookType: 'xlsx', type: 'array'});
