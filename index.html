@@ -212,6 +212,19 @@ body.has-timer .selbar{bottom:84px}
 .day.today{border-color:var(--accent)}
 @media (max-width:520px){.days{gap:4px}.day{padding:6px 5px}.day .dh{font-size:11.5px}.day .dn{font-size:11px}}
 .grid tbody tr.nohover{cursor:default}
+.cb-row{display:grid;grid-template-columns:16px minmax(0,1fr) minmax(80px,200px) 72px 72px 48px;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.cb .cb-row:first-child{border-top:0}
+.cb-h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);border-radius:12px 12px 0 0}
+.cb-key{text-transform:none;letter-spacing:0;font-weight:400;display:flex;align-items:center;gap:5px;white-space:nowrap}.cb-key i{display:inline-block;width:10px;height:6px;border-radius:2px}.cb-key i.n{margin-left:6px}
+.cb-c{cursor:pointer}.cb-c:hover,.cb-t[role=button]:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
+.cb-t{background:color-mix(in srgb,var(--sunk) 35%,transparent);padding-top:7px;padding-bottom:7px}.cb-t[role=button]{cursor:pointer}.cb-t .cb-name{padding-left:10px}
+.cb-chev{color:var(--muted);font-size:12px}
+.cb-name{min-width:0;display:flex;flex-direction:column;gap:1px}.cb-name b,.cb-name .t1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-bar{display:flex;height:7px;border-radius:4px;background:var(--sunk);overflow:hidden}
+.cb-bar i.b,.cb-key i.b{background:var(--accent)}.cb-bar i.n,.cb-key i.n{background:color-mix(in srgb,var(--accent) 35%,var(--sunk))}
+.cb-num{font-family:var(--f-mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.cb-tot{font-weight:600}.cb-pct,.cb-bill{color:var(--muted)}
+.filters .seg + .search{flex:1}
+@media (max-width:720px){.cb-row{grid-template-columns:14px minmax(0,1fr) 64px;row-gap:6px}.cb-row .cb-bar{grid-column:2 / -1;grid-row:2}.cb-bill,.cb-pct,.cb-h .cb-key{display:none}.cb-h{grid-template-columns:14px minmax(0,1fr) 64px}}
 .k-client-work{background:var(--ip-bg);color:var(--ip-fg)} .k-admin{background:var(--ns-bg);color:var(--ns-fg)} .k-training{background:var(--dn-bg);color:var(--dn-fg)}
 .k-business-development{background:var(--rv-bg);color:var(--rv-fg)} .k-leave{background:var(--na-bg);color:var(--na-fg)} .k-other{background:var(--ns-bg);color:var(--ns-fg)}
 .today-head .filters .btn.small{min-width:34px;justify-content:center}
@@ -836,6 +849,42 @@ function tsRange(){
   return {s, e, label: `${s.getDate()} ${MON[s.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]} ${e.getFullYear()}`};
 }
 function tsMatch(x){ const q = (ui.tsQ || '').toLowerCase(); if (!q) return true; return [x.client, nice(x.client), x.title, x.category, entryNotes(x)].some(v => String(v||'').toLowerCase().includes(q)); }
+// Time grouped by client, then by the work inside each client (task id, or the entry's description for free time).
+function tsBreakdown(list){
+  const cl = new Map();
+  for (const x of list){
+    const ck = nice(x.client) || `Internal · ${x.category || 'Other'}`;
+    const c = cl.get(ck) || {key: ck, b: 0, n: 0, tasks: new Map()}; cl.set(ck, c);
+    const tk = x.taskId || 'w:' + String(x.title || '').trim().toLowerCase();
+    const t = c.tasks.get(tk) || {key: tk, taskId: x.taskId || '', label: '', b: 0, n: 0, count: 0, last: ''}; c.tasks.set(tk, t);
+    const sec = +x.sec || 0; if (x.billable){ c.b += sec; t.b += sec; } else { c.n += sec; t.n += sec; }
+    t.count++; const when = x.date + (x.start || '');
+    if (when >= t.last){ t.last = when; t.label = x.title || ''; }
+  }
+  const tot = o => o.b + o.n;
+  return [...cl.values()].map(c => ({...c, tasks: [...c.tasks.values()].map(t => { const tk = t.taskId && tasks.get(t.taskId);
+      return {...t, label: tk ? tk.title + (tk.period ? ` · ${tk.period}` : '') : (t.label || 'No description')}; }).sort((a,b) => tot(b) - tot(a))}))
+    .sort((a,b) => tot(b) - tot(a));
+}
+function tsClientView(list){
+  const cl = tsBreakdown(list); if (!cl.length) return '';
+  const all = cl.reduce((n, c) => n + c.b + c.n, 0), max = Math.max(...cl.map(c => c.b + c.n)), open = new Set(ui.tsOpen || []);
+  const bar = (o, m) => `<span class="cb-bar" aria-hidden="true"><i class="b" style="width:${o.b/m*100}%"></i><i class="n" style="width:${o.n/m*100}%"></i></span>`;
+  const pct = o => `${Math.round((o.b + o.n) / all * 100)}%`;
+  const hrs = sec => sec ? fmtHrs(sec) : '–';
+  const rows = cl.map(c => { const isOpen = open.has(c.key);
+    const head = `<div class="cb-row cb-c" role="button" tabindex="0" data-act="ts-cl" data-id="${esc(c.key)}" aria-expanded="${isOpen}">
+      <span class="cb-chev">${isOpen ? '▾' : '▸'}</span><div class="cb-name"><b>${esc(c.key)}</b><span class="t2">${c.tasks.length} ${c.tasks.length === 1 ? 'item' : 'items'} · ${hrs(c.b)} billable</span></div>
+      ${bar(c, max)}<span class="cb-num cb-bill">${hrs(c.b)}</span><span class="cb-num cb-tot">${fmtHrs(c.b + c.n)}</span><span class="cb-num cb-pct">${pct(c)}</span></div>`;
+    const sub = isOpen ? c.tasks.map(t => { const can = t.taskId && tasks.has(t.taskId);
+      return `<div class="cb-row cb-t"${can ? ` role="button" tabindex="0" data-act="open-task" data-id="${esc(t.taskId)}"` : ''}>
+        <span></span><div class="cb-name"><span class="t1">${esc(t.label)}</span><span class="t2">${t.count} ${t.count === 1 ? 'session' : 'sessions'}${t.b && t.n ? ` · ${hrs(t.b)} billable` : t.b ? ' · billable' : ' · non-billable'}</span></div>
+        ${bar(t, c.b + c.n)}<span class="cb-num cb-bill">${hrs(t.b)}</span><span class="cb-num cb-tot">${fmtHrs(t.b + t.n)}</span><span class="cb-num cb-pct">${pct(t)}</span></div>`; }).join('') : '';
+    return head + sub; }).join('');
+  const allOpen = cl.every(c => open.has(c.key));
+  return `<section class="group"><div class="group-h"><h2>Time by client</h2><span class="count">${cl.length} ${cl.length === 1 ? 'client' : 'clients'}</span><span class="grow"></span><button class="btn small ghost" data-act="ts-all" data-v="${allOpen ? 0 : 1}">${allOpen ? 'Collapse all' : 'Show all tasks'}</button></div>
+    <div class="list cb"><div class="cb-row cb-h" aria-hidden="true"><span></span><span>Client and work</span><span class="cb-key"><i class="b"></i>Billable <i class="n"></i>Non-billable</span><span class="cb-num cb-bill">Billable</span><span class="cb-num cb-tot">Total</span><span class="cb-num cb-pct">Share</span></div>${rows}</div></section>`;
+}
 function viewTime(){
   const {s, e, label} = tsRange(), sI = iso(s), eI = iso(e), t0 = iso(today());
   if (sI < timeCutoff) loadOld(sI, eI < timeCutoff ? eI : timeCutoff);
@@ -854,10 +903,7 @@ function viewTime(){
       ${readOnly ? '<span></span>' : `<button class="tbtn" data-act="ts-again" data-id="${esc(x.date + '|' + x.id)}" aria-label="Start a timer on this again" title="Start a timer on this again">${IC.play}</button>`}</div>`; };
   const dayBlocks = days.filter(d => per.get(d).length).map(d => { const l = per.get(d).sort(byStart).reverse();
     return `<section class="group"><div class="group-h"><h2>${esc(D(d).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'short'}))}</h2><span class="count">${fmtDur(sumSec(l))}</span></div><div class="list">${l.map(row).join('')}</div></section>`; }).join('');
-  const byClient = new Map(); for (const x of list){ const k = nice(x.client) || `Internal · ${x.category || 'Other'}`; const o = byClient.get(k) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; byClient.set(k, o); }
-  const summary = byClient.size ? `<section class="section"><div class="group-h"><h2>By client</h2></div><div class="tbl-wrap"><table class="grid"><thead><tr><th>Client</th><th class="num">Billable</th><th class="num">Non-billable</th><th class="num">Total</th></tr></thead><tbody>
-    ${[...byClient.entries()].sort((a,b) => (b[1].b+b[1].n) - (a[1].b+a[1].n)).map(([k,o]) => `<tr class="nohover"><td>${esc(k)}</td><td class="num">${o.b ? fmtHrs(o.b) : ''}</td><td class="num">${o.n ? fmtHrs(o.n) : ''}</td><td class="num"><b>${fmtHrs(o.b+o.n)}</b></td></tr>`).join('')}</tbody></table></div></section>` : '';
-  const running = runningId() || freeTimer;
+  const running = runningId() || freeTimer, byC = ui.tsBy === 'client';
   const starter = readOnly ? '' : `<div class="ts-start">
     <input id="ts-what" data-ui="tsWhat" value="${esc(ui.tsWhat||'')}" placeholder="What are you working on?" aria-label="What are you working on">
     <input id="ts-client" data-ui="tsClient" list="clientListTs" value="${esc(ui.tsClient||'')}" placeholder="Client (optional)" aria-label="Client">${clientOptions('clientListTs')}
@@ -877,9 +923,8 @@ function viewTime(){
     <div class="stat"><span class="n">${tot ? Math.round(bill/tot*100) : 0}%</span><span class="l">Billable share</span></div>
     <div class="stat"><span class="n">${fmtHrs(todaySec)}</span><span class="l">Logged today</span></div></div>
   ${strip}
-  <div class="filters"><input class="search" id="q-ts" type="search" placeholder="Search client, work, category" value="${esc(ui.tsQ||'')}" data-act="q" data-key="tsQ"></div>
-  ${dayBlocks || `<div class="list"><div class="empty">No time logged ${ui.tsRange === 'month' ? 'this month' : 'this week'}${ui.tsQ ? ' that matches your search' : ''}. Start a timer above, or press ▶ on any task.</div></div>`}
-  ${summary}`;
+  <div class="filters"><div class="seg" role="group" aria-label="Group time"><button data-act="ts-by" data-v="day" aria-pressed="${byC ? 'false' : 'true'}">By day</button><button data-act="ts-by" data-v="client" aria-pressed="${byC}">By client</button></div><input class="search" id="q-ts" type="search" placeholder="Search client, work, category" value="${esc(ui.tsQ||'')}" data-act="q" data-key="tsQ"></div>
+  ${(byC ? tsClientView(list) : dayBlocks) || `<div class="list"><div class="empty">No time logged ${ui.tsRange === 'month' ? 'this month' : 'this week'}${ui.tsQ ? ' that matches your search' : ''}. Start a timer above, or press ▶ on any task.</div></div>`}`;
 }
 function tsAgain(key){
   const [d, eid] = key.split('|'); const doc = timeDays.get(d) || timeOld.get(d); const x = doc && (doc.entries || []).find(e => e.id === eid); if (!x) return;
@@ -931,6 +976,12 @@ async function tsExcel(btn){
     const cl1 = cl.length + 1, sumCol = (c, list) => ({t:'n', f:`SUM(${c}2:${c}${cl1})`, z:'0.00', v: list.reduce((a, r) => a + (+(r[{B:1,C:2,D:3}[c]] || {}).v || 0), 0)});
     const ws2 = sheet([['Client', 'Billable hours', 'Non-billable hours', 'Total hours'], ...cRows, [], ['Total', sumCol('B', cRows), sumCol('C', cRows), sumCol('D', cRows)]], [40, 15, 18, 13]);
 
+    // By task: each client's work, biggest first
+    const tRows = []; for (const c of tsBreakdown(rows)) for (const t of c.tasks){ const r = tRows.length + 2;
+      tRows.push([c.key, t.label, t.count, t.b ? cell(H(t.b), '0.00') : null, t.n ? cell(H(t.n), '0.00') : null, {t:'n', f:`SUM(D${r}:E${r})`, v: H(t.b + t.n), z:'0.00'}]); }
+    const tl1 = tRows.length + 1, sumT = c => ({t:'n', f:`SUM(${c}2:${c}${tl1})`, z:'0.00', v: tRows.reduce((a, r) => a + (+(r[{D:3,E:4,F:5}[c]] || {}).v || 0), 0)});
+    const wsT = sheet([['Client', 'Work', 'Sessions', 'Billable hours', 'Non-billable hours', 'Total hours'], ...tRows, [], ['Total', '', '', sumT('D'), sumT('E'), sumT('F')]], [40, 48, 9, 15, 18, 13], ws => { ws['!autofilter'] = {ref: `A1:F${tl1}`}; });
+
     // By day
     const days = new Map(); for (const x of rows){ const o = days.get(x.date) || {b:0, n:0}; x.billable ? o.b += +x.sec||0 : o.n += +x.sec||0; days.set(x.date, o); }
     const dl = [...days.entries()].sort((a,b) => a[0].localeCompare(b[0]));
@@ -941,6 +992,7 @@ async function tsExcel(btn){
     const wb = X.utils.book_new();
     X.utils.book_append_sheet(wb, ws1, 'Timesheet');
     X.utils.book_append_sheet(wb, ws2, 'By client');
+    X.utils.book_append_sheet(wb, wsT, 'By task');
     X.utils.book_append_sheet(wb, ws3, 'By day');
     wb.Props = {Title: `Timesheet ${label}`};
     const buf = X.write(wb, {bookType: 'xlsx', type: 'array'});
@@ -2415,6 +2467,9 @@ document.addEventListener('click', e => {
     case 'ts-again': tsAgain(id); break;
     case 'ts-xlsx': tsExcel(a); break;
     case 'ts-range': ui.tsRange = a.dataset.v; persistUi(); render(); break;
+    case 'ts-by': ui.tsBy = a.dataset.v; persistUi(); render(); break;
+    case 'ts-cl': { const o = new Set(ui.tsOpen || []); o.has(id) ? o.delete(id) : o.add(id); ui.tsOpen = [...o].slice(-60); persistUi(); render(); break; }
+    case 'ts-all': { const {s, e} = tsRange(); ui.tsOpen = a.dataset.v === '1' ? tsBreakdown(entriesIn(iso(s), iso(e)).filter(tsMatch)).map(c => c.key).slice(0, 60) : []; persistUi(); render(); break; }
     case 'ts-move': { const v = +a.dataset.v, {s} = tsRange(); ui.tsAnchor = v === 0 ? '' : iso(ui.tsRange === 'month' ? new Date(s.getFullYear(), s.getMonth() + v, 1, 12) : addDays(s, 7*v)); persistUi(); render(); break; }
     case 'open-time': openDrawer('time', id); break;
     case 'save-time': saveTime(); break;
